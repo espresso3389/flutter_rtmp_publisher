@@ -15,7 +15,9 @@ void main() {
     channel.setMockMethodCallHandler(null);
   });
 
+  /*
   test('getPlatformVersion', () async {
     expect(await FlutterRtmpPublisher.platformVersion, '42');
   });
+  */
 }
