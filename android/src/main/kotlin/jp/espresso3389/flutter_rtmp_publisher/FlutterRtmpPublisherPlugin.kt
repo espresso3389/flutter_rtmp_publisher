@@ -40,6 +40,47 @@ class FlutterRtmpPublisherPlugin(
       rtmpPub.close()
       textures.delete(tex)
       result.success(true)
+    } else if (call.method == "initCaptureConfig") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpPub = textures[tex]
+      val width = call.argument<Number>("width")!!.toInt()
+      val height = call.argument<Number>("height")!!.toInt()
+      val fps = call.argument<Number>("fps")!!.toInt()
+      val camera = if (call.argument<String>("camera") == "back") RtmpPublisher.Camera.Back else RtmpPublisher.Camera.Front
+      rtmpPub.setCaptureConfig(width, height, fps, camera)
+      result.success(true)
+    } else if (call.method == "pause") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpPub = textures[tex]
+      rtmpPub.pause()
+      result.success(true)
+    } else if (call.method == "resume") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpPub = textures[tex]
+      rtmpPub.resume()
+      result.success(true)
+    } else if (call.method == "startPreview") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpPub = textures[tex]
+      rtmpPub.startPreview()
+      result.success(true)
+    } else if (call.method == "stopPreview") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpPub = textures[tex]
+      rtmpPub.stopPreview()
+      result.success(true)
+    } else if (call.method == "connect") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpUrl = call.argument<String>("url")
+      val name = call.argument<String>("name")
+      val rtmpPub = textures[tex]
+      rtmpPub.connect(rtmpUrl!!, name!!)
+      result.success(true)
+    } else if (call.method == "disconnect") {
+      val tex = call.argument<Number>("tex")!!.toLong()
+      val rtmpPub = textures[tex]
+      rtmpPub.disconnect()
+      result.success(true)
     } else if (call.method == "initAVFoundation") {
       // FIXME: name should be changed but it is suitable for some initialization
     } else {
@@ -82,5 +123,32 @@ class RtmpPublisher(
     streamer?.stopStreaming()
     textureEntry.release()
     eventChannel.setStreamHandler(null)
+  }
+
+  enum class Camera {
+    Back,
+    Front
+  }
+
+  fun setCaptureConfig(width: Int, height: Int, fps: Int, camera: Camera) {
+
+  }
+
+  fun pause() {
+  }
+
+  fun resume() {
+  }
+
+  fun startPreview() {
+  }
+
+  fun stopPreview() {
+  }
+
+  fun connect(rtmpUrl: String, name: String) {
+  }
+
+  fun disconnect() {
   }
 }
