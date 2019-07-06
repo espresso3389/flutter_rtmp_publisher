@@ -1,0 +1,29 @@
+PODS:
+  - Flutter (1.0.0)
+  - haishin_kit (0.0.1):
+    - Flutter
+    - Logboard
+  - Logboard (2.1.0)
+
+DEPENDENCIES:
+  - Flutter (from `.symlinks/flutter/ios`)
+  - haishin_kit (from `.symlinks/plugins/haishin_kit/ios`)
+
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - Logboard
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: ".symlinks/flutter/ios"
+  haishin_kit:
+    :path: ".symlinks/plugins/haishin_kit/ios"
+
+SPEC CHECKSUMS:
+  Flutter: 58dd7d1b27887414a370fcccb9e645c08ffd7a6a
+  haishin_kit: 5821671c014b07f44a1bbc35289a44d2f98daa0f
+  Logboard: ff780bba1dc55be6f9fc41b4e4e36115ec92f3e0
+
+PODFILE CHECKSUM: 8dfe481be7eab4daff15e9e4ecfdcc3970f196ae
+
+COCOAPODS: 1.7.1
