@@ -47,7 +47,7 @@ public class CameraWrapper {
   private final OrientationEventListener orientationEventListener;
   private int currentOrientation = ORIENTATION_UNKNOWN;
 
-  private CameraWrapper(Registrar registrar) {
+  public CameraWrapper(Registrar registrar) {
     this.registrar = registrar;
 
     if (cameraManager == null)
