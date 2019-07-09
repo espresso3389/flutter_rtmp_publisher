@@ -54,8 +54,7 @@ class FlutterRtmpPublisherPlugin(
           val height = call.argument<Number>("height")!!.toInt()
           val fps = call.argument<Number>("fps")!!.toInt()
           val camera = if (call.argument<String>("camera") == "back") CameraFacing.Back else CameraFacing.Front
-          rtmpPub.setCaptureConfig(width, height, fps, camera)
-          result.success(true)
+          rtmpPub.setCaptureConfig(width, height, fps, camera, result)
         }
         call.method == "pause" -> {
           val tex = call.argument<Number>("tex")!!.toLong()
@@ -66,8 +65,7 @@ class FlutterRtmpPublisherPlugin(
         call.method == "resume" -> {
           val tex = call.argument<Number>("tex")!!.toLong()
           val rtmpPub = textures[tex]
-          rtmpPub.resume()
-          result.success(true)
+          rtmpPub.resume(result)
         }
         call.method == "startPreview" -> {
           val tex = call.argument<Number>("tex")!!.toLong()
