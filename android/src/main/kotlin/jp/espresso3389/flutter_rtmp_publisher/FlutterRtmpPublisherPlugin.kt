@@ -31,64 +31,74 @@ class FlutterRtmpPublisherPlugin(
   }
 
   override fun onMethodCall(call: MethodCall, result: Result) {
-    if (call.method == "alloc") {
-      val tex = registrar.textures().createSurfaceTexture()
-      val textureId = tex.id()
-      val eventChannel = EventChannel(registrar.messenger(), "flutter_rtmp_publisher/events/$textureId")
-      val rtmpPub = RtmpPublisher(registrar.context(), eventChannel, tex)
-      textures.put(textureId, rtmpPub)
-      result.success(textureId)
-    } else if (call.method == "release") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      rtmpPub.close()
-      textures.delete(tex)
-      result.success(true)
-    } else if (call.method == "initCaptureConfig") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      val width = call.argument<Number>("width")!!.toInt()
-      val height = call.argument<Number>("height")!!.toInt()
-      val fps = call.argument<Number>("fps")!!.toInt()
-      val camera = if (call.argument<String>("camera") == "back") CameraFacing.Back else CameraFacing.Front
-      rtmpPub.setCaptureConfig(width, height, fps, camera)
-      result.success(true)
-    } else if (call.method == "pause") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      rtmpPub.pause()
-      result.success(true)
-    } else if (call.method == "resume") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      rtmpPub.resume()
-      result.success(true)
-    } else if (call.method == "startPreview") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      rtmpPub.startPreview()
-      result.success(true)
-    } else if (call.method == "stopPreview") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      rtmpPub.stopPreview()
-      result.success(true)
-    } else if (call.method == "connect") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpUrl = call.argument<String>("url")
-      val name = call.argument<String>("name")
-      val rtmpPub = textures[tex]
-      rtmpPub.connect(rtmpUrl!!, name!!)
-      result.success(true)
-    } else if (call.method == "disconnect") {
-      val tex = call.argument<Number>("tex")!!.toLong()
-      val rtmpPub = textures[tex]
-      rtmpPub.disconnect()
-      result.success(true)
-    } else if (call.method == "initAVFoundation") {
-      // FIXME: name should be changed but it is suitable for some initialization
-    } else {
-      result.notImplemented()
+    when {
+        call.method == "alloc" -> {
+          val tex = registrar.textures().createSurfaceTexture()
+          val textureId = tex.id()
+          val eventChannel = EventChannel(registrar.messenger(), "flutter_rtmp_publisher/events/$textureId")
+          val rtmpPub = RtmpPublisher(registrar.context(), eventChannel, tex)
+          textures.put(textureId, rtmpPub)
+          result.success(textureId)
+        }
+        call.method == "release" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          rtmpPub.close()
+          textures.delete(tex)
+          result.success(true)
+        }
+        call.method == "initCaptureConfig" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          val width = call.argument<Number>("width")!!.toInt()
+          val height = call.argument<Number>("height")!!.toInt()
+          val fps = call.argument<Number>("fps")!!.toInt()
+          val camera = if (call.argument<String>("camera") == "back") CameraFacing.Back else CameraFacing.Front
+          rtmpPub.setCaptureConfig(width, height, fps, camera)
+          result.success(true)
+        }
+        call.method == "pause" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          rtmpPub.pause()
+          result.success(true)
+        }
+        call.method == "resume" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          rtmpPub.resume()
+          result.success(true)
+        }
+        call.method == "startPreview" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          rtmpPub.startPreview()
+          result.success(true)
+        }
+        call.method == "stopPreview" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          rtmpPub.stopPreview()
+          result.success(true)
+        }
+        call.method == "connect" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpUrl = call.argument<String>("url")
+          val name = call.argument<String>("name")
+          val rtmpPub = textures[tex]
+          rtmpPub.connect(rtmpUrl!!, name!!)
+          result.success(true)
+        }
+        call.method == "disconnect" -> {
+          val tex = call.argument<Number>("tex")!!.toLong()
+          val rtmpPub = textures[tex]
+          rtmpPub.disconnect()
+          result.success(true)
+        }
+        call.method == "initAVFoundation" -> {
+          // FIXME: name should be changed but it is suitable for some initialization
+        }
+        else -> result.notImplemented()
     }
   }
 
