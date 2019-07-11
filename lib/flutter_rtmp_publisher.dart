@@ -113,18 +113,51 @@ class HaishinViewController {
     if (_tex == -1 || _width == null || _height == null || _fps == null)
       throw Exception('The instance not initialized.');
   }
+
+  static Future _statePaused() async {
+    await _channel.invokeMethod('paused');
+  }
+
+  static Future _stateResumed() async {
+    await _channel.invokeMethod('resumed');
+  }
 }
 
-class HaishinView extends StatelessWidget {
-  final HaishinViewController controller;
+class HaishinView extends StatefulWidget {
+  @override
+  _HaishinViewState createState() => _HaishinViewState();
+
   HaishinView({Key key, @required this.controller}) : super(key: key);
+}
+
+class _HaishinViewState extends State<HaishinView> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      HaishinViewController._statePaused();
+    } else if (state == AppLifecycleState.resumed) {
+      HaishinViewController._stateResumed();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: controller._subject.stream,
-      builder: (context, snapshot) => controller._tex >= 0
-      ? Texture(textureId: controller._tex)
+      stream: widget.controller._subject.stream,
+      builder: (context, snapshot) => widget.controller._tex >= 0
+      ? Texture(textureId: widget.controller._tex)
       : Container()
     );
   }

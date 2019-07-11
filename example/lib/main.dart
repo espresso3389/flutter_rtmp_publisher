@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rtmp_publisher/flutter_rtmp_publisher.dart';
+import 'package:screen_keep_on/screen_keep_on.dart';
 
 void main() => runApp(MyApp());
 
@@ -14,7 +15,14 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    ScreenKeepOn.turnOn(true);
     initAsync();
+  }
+
+  @override
+  void dispose() {
+    ScreenKeepOn.turnOn(false);
+    super.dispose();
   }
 
   Future initAsync() async {
@@ -30,7 +38,7 @@ class _MyAppState extends State<MyApp> {
           actions: <Widget>[
             IconButton(icon: Icon(Icons.cast_connected),
             onPressed: () {
-              controller.connect(rtmpUrl: 'rtmp://xxxxxx/input/', name: 'main');
+              controller.connect(rtmpUrl: 'rtmp://dev.cuminas.jp:1935/hls/test', name: 'main');
             },)
           ],
         ),
