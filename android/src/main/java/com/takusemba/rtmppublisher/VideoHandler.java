@@ -1,12 +1,13 @@
 package com.takusemba.rtmppublisher;
 
+import android.graphics.SurfaceTexture;
 import android.opengl.EGLContext;
 import android.os.Handler;
 import android.os.HandlerThread;
 
 import java.io.IOException;
 
-class VideoHandler implements FrameListener {
+class VideoHandler implements CameraSurfaceRenderer.OnRendererStateChangedListener {
 
     private static final int FRAME_RATE = 30;
 
@@ -64,7 +65,12 @@ class VideoHandler implements FrameListener {
     }
 
     @Override
-    public void onNewFrame(final int textureId, final float[] transform, final long timestamp) {
+    public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
+        // no-op
+    }
+
+    @Override
+    public void onFrameDrawn(final int textureId, final float[] transform, final long timestamp) {
         handler.post(new Runnable() {
             @Override
             public void run() {
