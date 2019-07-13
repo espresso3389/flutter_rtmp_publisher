@@ -127,6 +127,8 @@ class HaishinView extends StatefulWidget {
   @override
   _HaishinViewState createState() => _HaishinViewState();
 
+  HaishinViewController controller;
+
   HaishinView({Key key, @required this.controller}) : super(key: key);
 }
 

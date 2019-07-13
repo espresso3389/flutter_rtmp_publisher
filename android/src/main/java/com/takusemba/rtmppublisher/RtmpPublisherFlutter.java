@@ -1,105 +1,128 @@
 package com.takusemba.rtmppublisher;
 
 import android.app.Activity;
-import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
-import android.arch.lifecycle.LifecycleOwner;
-import android.arch.lifecycle.OnLifecycleEvent;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
-import android.opengl.GLSurfaceView;
-import android.os.Handler;
-import android.support.v7.app.AppCompatActivity;
 
 import io.flutter.view.TextureRegistry;
+import jp.espresso3389.video_player.SurfaceTextureForwarder;
 
-public class RtmpPublisherFlutter implements Publisher, SurfaceTexture.OnFrameAvailableListener {
-  FrameAndMaskToRgbaSurfaceTexture ftex;
-  private TextureRegistry.SurfaceTextureEntry tex;
+public class RtmpPublisherFlutter {
+  SurfaceTextureForwarder ftex;
+  private TextureRegistry.SurfaceTextureEntry flutterTexture;
   private CameraClient camera;
   private Streamer streamer;
-
-  private String url;
   private int width;
   private int height;
+  private int fps;
+  private CameraMode mode;
+  private Camera.Size cameraSize;
   private int audioBitrate;
   private int videoBitrate;
+  private boolean pausing = false;
 
-  RtmpPublisherFlutter(Activity activity,
-                       TextureRegistry.SurfaceTextureEntry tex,
-                       String url,
-                       int width,
-                       int height,
-                       int audioBitrate,
-                       int videoBitrate,
-                       CameraMode mode,
+  public RtmpPublisherFlutter(Activity activity,
+                       TextureRegistry.SurfaceTextureEntry flutterTexture,
                        PublisherListener listener) {
 
-    this.tex = tex;
-    this.url = url;
-    this.width = width;
-    this.height = height;
-    this.audioBitrate = audioBitrate;
-    this.videoBitrate = videoBitrate;
-
+    this.flutterTexture = flutterTexture;
     this.camera = new CameraClient(activity, mode);
     this.streamer = new Streamer();
     this.streamer.setMuxerListener(listener);
+
+    initSurface();
   }
 
-  @Override
   public void switchCamera() {
     camera.swap();
   }
 
-  @Override
-  public void startPublishing() {
+  public void setCaptureConfig(int width, int height, int fps, CameraMode mode, int audioBitrate, int videoBitrate) {
+    this.width = width;
+    this.height = height;
+    this.fps = fps;
+    this.mode = mode;
+    this.audioBitrate = audioBitrate;
+    this.videoBitrate = videoBitrate;
+  }
+
+  public void startPublishing(String url) {
     streamer.open(url, width, height);
     final EGLContext context = EGL14.eglGetCurrentContext();
     streamer.startStreaming(context, width, height, audioBitrate, videoBitrate);
+    pausing = false;
   }
 
-  @Override
   public void stopPublishing() {
     if (streamer.isStreaming()) {
       streamer.stopStreaming();
     }
   }
 
-  @Override
   public boolean isPublishing() {
     return streamer.isStreaming();
   }
 
+  public Camera.Size getCameraSize() { return cameraSize; }
+
+  void initSurface() {
+    if (ftex != null)
+      return;
+
+    Camera.Parameters params = camera.open();
+    cameraSize = params.getPreviewSize();
+
+    ftex = new SurfaceTextureForwarder(flutterTexture.surfaceTexture());
+    ftex.setupDestSurface(cameraSize.width, cameraSize.height);
+
+    ftex.setOnFrameDrawn(new SurfaceTextureForwarder.OnFrameDrawn() {
+      @Override
+      public void onFrameDrawn(int textureId, SurfaceTexture surfaceTexture) {
+        if (pausing)
+          return;
+        float[] tx = new float[16];
+        surfaceTexture.getTransformMatrix(tx);
+        streamer.getVideoHandlerListener().onFrameDrawn(textureId, tx, surfaceTexture.getTimestamp());
+      }
+    });
+
+    camera.startPreview(ftex.getSurfaceTexture());
+  }
+
+  public void resume() {
+    pausing = false;
+  }
+
+  public void pause() {
+    pausing = true;
+  }
+
+  public void release() {
+    if (camera != null) {
+      camera.close();
+      camera = null;
+    }
+
+    if (ftex != null) {
+      ftex.release();
+      ftex = null;
+    }
+
+    if (streamer.isStreaming()) {
+      streamer.stopStreaming();
+      streamer = null;
+    }
+  }
+
   // should be explicitly called by Flutter code
   public void onResume() {
-    Camera.Parameters params = camera.open();
-    final Camera.Size size = params.getPreviewSize();
-    //glView.onResume();
-    //renderer.setCameraPreviewSize(size.width, size.height);
+    initSurface();
   }
 
   // should be explicitly called by Flutter code
   public void onPause() {
-    if (camera != null) {
-      camera.close();
-    }
-    //glView.onPause();
-    //renderer.pause();
-    if (streamer.isStreaming()) {
-      streamer.stopStreaming();
-    }
-  }
-
-  public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
-    surfaceTexture.setOnFrameAvailableListener(this);
-    camera.startPreview(surfaceTexture);
-  }
-
-  @Override
-  public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-    //glView.requestRender();
+    release();
   }
 }
