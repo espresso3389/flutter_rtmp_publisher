@@ -10,14 +10,15 @@ import io.flutter.view.TextureRegistry;
 import jp.espresso3389.video_player.SurfaceTextureForwarder;
 
 public class RtmpPublisherFlutter {
-  SurfaceTextureForwarder ftex;
+  private SurfaceTextureForwarder ftex;
+  private Activity activity;
   private TextureRegistry.SurfaceTextureEntry flutterTexture;
   private CameraClient camera;
   private Streamer streamer;
   private int width;
   private int height;
   private int fps;
-  private CameraMode mode;
+  private CameraMode mode = CameraMode.BACK;
   private Camera.Size cameraSize;
   private int audioBitrate;
   private int videoBitrate;
@@ -27,12 +28,21 @@ public class RtmpPublisherFlutter {
                        TextureRegistry.SurfaceTextureEntry flutterTexture,
                        PublisherListener listener) {
 
+    this.activity = activity;
     this.flutterTexture = flutterTexture;
-    this.camera = new CameraClient(activity, mode);
+
     this.streamer = new Streamer();
     this.streamer.setMuxerListener(listener);
 
     initSurface();
+  }
+
+  void initCamera() {
+    if (this.camera == null) {
+      this.camera = new CameraClient(activity, mode);
+    } else if (this.camera.getMode() != mode) {
+      this.camera.swap();
+    }
   }
 
   public void switchCamera() {
@@ -44,6 +54,8 @@ public class RtmpPublisherFlutter {
     this.height = height;
     this.fps = fps;
     this.mode = mode;
+    initCamera();
+
     this.audioBitrate = audioBitrate;
     this.videoBitrate = videoBitrate;
   }
@@ -70,6 +82,8 @@ public class RtmpPublisherFlutter {
   void initSurface() {
     if (ftex != null)
       return;
+
+    initCamera();
 
     Camera.Parameters params = camera.open();
     cameraSize = params.getPreviewSize();
@@ -99,10 +113,9 @@ public class RtmpPublisherFlutter {
     pausing = true;
   }
 
-  public void release() {
+  public void deinitSurface() {
     if (camera != null) {
       camera.close();
-      camera = null;
     }
 
     if (ftex != null) {
@@ -116,6 +129,11 @@ public class RtmpPublisherFlutter {
     }
   }
 
+  public void release() {
+    deinitSurface();
+    camera = null;
+  }
+
   // should be explicitly called by Flutter code
   public void onResume() {
     initSurface();
@@ -123,6 +141,6 @@ public class RtmpPublisherFlutter {
 
   // should be explicitly called by Flutter code
   public void onPause() {
-    release();
+    deinitSurface();
   }
 }

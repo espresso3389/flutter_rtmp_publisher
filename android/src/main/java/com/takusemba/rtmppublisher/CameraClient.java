@@ -37,6 +37,10 @@ class CameraClient {
         return params;
     }
 
+    CameraMode getMode() {
+      return mode;
+    }
+
     void swap() {
         close();
 
