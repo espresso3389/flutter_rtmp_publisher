@@ -1,6 +1,7 @@
 package jp.espresso3389.flutter_rtmp_publisher
 
 import android.Manifest
+import android.util.Log
 import android.util.LongSparseArray
 import com.takusemba.rtmppublisher.CameraMode
 import com.takusemba.rtmppublisher.PublisherListener
@@ -112,15 +113,19 @@ class FlutterRtmpPublisherPlugin(
 
   class RtmpPublisherWrapper(registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): PublisherListener {
     override fun onStarted() {
+      Log.i("RtmpPublisherWrapper","onStarted")
     }
 
     override fun onStopped() {
+      Log.i("RtmpPublisherWrapper","onStopped")
     }
 
     override fun onDisconnected() {
+      Log.i("RtmpPublisherWrapper","onDisconnected")
     }
 
     override fun onFailedToConnect() {
+      Log.i("RtmpPublisherWrapper","onFailedToConnect")
     }
 
     private val glSurfaceView: FlutterGLSurfaceView = FlutterGLSurfaceView(registrar, flutterTexture.surfaceTexture())
