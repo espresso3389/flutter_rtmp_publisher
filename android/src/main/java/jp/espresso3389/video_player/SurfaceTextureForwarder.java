@@ -277,7 +277,6 @@ public class SurfaceTextureForwarder implements SurfaceTexture.OnFrameAvailableL
         "}\n";
 
     private float[] mMVPMatrix = new float[16];
-    private float[] mSTMatrix = new float[16];
 
     private int mProgram;
     private int mTextureID = -12345;
@@ -292,9 +291,9 @@ public class SurfaceTextureForwarder implements SurfaceTexture.OnFrameAvailableL
         .order(ByteOrder.nativeOrder()).asFloatBuffer();
       mTriangleVertices.put(mTriangleVerticesData).position(0);
 
-      Matrix.setIdentityM(mSTMatrix, 0);
-
       mTextureID = textureId;
+
+      Matrix.setIdentityM(mMVPMatrix, 0);
     }
 
     public int getTextureId() {
@@ -306,6 +305,7 @@ public class SurfaceTextureForwarder implements SurfaceTexture.OnFrameAvailableL
      */
     public void drawFrame(SurfaceTexture st, boolean invert) {
       checkGlError("onDrawFrame start");
+      float[] mSTMatrix = new float[16];
       st.getTransformMatrix(mSTMatrix);
       if (invert) {
         mSTMatrix[5] = -mSTMatrix[5];
@@ -336,7 +336,6 @@ public class SurfaceTextureForwarder implements SurfaceTexture.OnFrameAvailableL
       GLES20.glEnableVertexAttribArray(maTextureHandle);
       checkGlError("glEnableVertexAttribArray maTextureHandle");
 
-      Matrix.setIdentityM(mMVPMatrix, 0);
       GLES20.glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix, 0);
       GLES20.glUniformMatrix4fv(muSTMatrixHandle, 1, false, mSTMatrix, 0);
 
