@@ -72,6 +72,7 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
         isSurfaceCreated = true;
     }
 
+    @Override
     public void onSurfaceChanged(GL10 unused, int width, int height) {
 
     }

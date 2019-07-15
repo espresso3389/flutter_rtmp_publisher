@@ -3,12 +3,12 @@ package com.takusemba.rtmppublisher;
 public interface PublisherListener {
 
     /**
-     * Called when {@link Publisher} started publishing
+     * Called when started publishing
      */
     void onStarted();
 
     /**
-     * Called when {@link Publisher} stopped publishing
+     * Called when stopped publishing
      */
     void onStopped();
 

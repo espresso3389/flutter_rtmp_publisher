@@ -1,9 +1,10 @@
 package jp.espresso3389.flutter_rtmp_publisher
 
+import android.Manifest
 import android.util.LongSparseArray
 import com.takusemba.rtmppublisher.CameraMode
 import com.takusemba.rtmppublisher.PublisherListener
-import com.takusemba.rtmppublisher.RtmpPublisherFlutter
+import com.takusemba.rtmppublisher.RtmpPublisher
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -15,7 +16,7 @@ class FlutterRtmpPublisherPlugin(
   registrar: Registrar): MethodCallHandler {
 
   private var registrar: Registrar = registrar
-  private var textures: LongSparseArray<RtmpPublisher> = LongSparseArray()
+  private var textures: LongSparseArray<RtmpPublisherWrapper> = LongSparseArray()
 
   private val BITRATE_MAGIC_DIVIDER = 13 // 720p@30fps => 2MB
   private val AUDIO_BITRATE = 128 * 1024
@@ -33,7 +34,7 @@ class FlutterRtmpPublisherPlugin(
       call.method == "alloc" -> {
         val tex = registrar.textures().createSurfaceTexture()
         val textureId = tex.id()
-        val rtmpPub = RtmpPublisher(registrar, tex)
+        val rtmpPub = RtmpPublisherWrapper(registrar, tex)
         textures.put(textureId, rtmpPub)
         result.success(textureId)
       }
@@ -45,16 +46,23 @@ class FlutterRtmpPublisherPlugin(
         result.success(true)
       }
       call.method == "initCaptureConfig" -> {
-        val tex = call.argument<Number>("tex")!!.toLong()
-        val rtmpPub = textures[tex]
-        val width = call.argument<Number>("width")!!.toInt()
-        val height = call.argument<Number>("height")!!.toInt()
-        val fps = call.argument<Number>("fps")!!.toInt()
-        val camera = if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
-        val audioBitRate = AUDIO_BITRATE
-        val videoBitRate = width * height * fps / BITRATE_MAGIC_DIVIDER
-        rtmpPub.pub.setCaptureConfig(width, height, fps, camera, audioBitRate, videoBitRate)
-        result.success(true)
+        PermissionRequester.requestPermissions(registrar, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)) {
+          grantAll ->
+          if (!grantAll) {
+            result.success(false)
+          } else {
+            val tex = call.argument<Number>("tex")!!.toLong()
+            val rtmpPub = textures[tex]
+            val width = call.argument<Number>("width")!!.toInt()
+            val height = call.argument<Number>("height")!!.toInt()
+            val fps = call.argument<Number>("fps")!!.toInt()
+            val camera = if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
+            val audioBitRate = AUDIO_BITRATE
+            val videoBitRate = width * height * fps / BITRATE_MAGIC_DIVIDER
+            rtmpPub.pub.setCaptureConfig(width, height, fps, camera, audioBitRate, videoBitRate)
+            result.success(true)
+          }
+        }
       }
       call.method == "pause" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
@@ -71,13 +79,13 @@ class FlutterRtmpPublisherPlugin(
       call.method == "startPreview" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        //rtmpPub.startPreview()
+        rtmpPub.pub.onResume()
         result.success(true)
       }
       call.method == "stopPreview" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        //rtmpPub.stopPreview()
+        rtmpPub.pub.onPause()
         result.success(true)
       }
       call.method == "connect" -> {
@@ -102,7 +110,7 @@ class FlutterRtmpPublisherPlugin(
     }
   }
 
-  class RtmpPublisher(registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): PublisherListener {
+  class RtmpPublisherWrapper(registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): PublisherListener {
     override fun onStarted() {
     }
 
@@ -115,7 +123,10 @@ class FlutterRtmpPublisherPlugin(
     override fun onFailedToConnect() {
     }
 
-    public val pub: RtmpPublisherFlutter = RtmpPublisherFlutter(registrar, flutterTexture, this)
+    private val glSurfaceView: FlutterGLSurfaceView = FlutterGLSurfaceView(registrar, flutterTexture.surfaceTexture())
+    val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
+      override fun onCameraSizeDetermined(width: Int, height: Int) { glSurfaceView.setSurfaceTextureSize(width, height) }
+    })
 
   }
 }
