@@ -58,6 +58,7 @@ public class PermissionRequester implements PluginRegistry.RequestPermissionsRes
       }
     }
     if (perms.isEmpty()) {
+      permissionsGranted.allGranted = true;
       permissionsGranted.run();
       return;
     }
