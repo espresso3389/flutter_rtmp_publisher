@@ -1,17 +1,18 @@
 package com.takusemba.rtmppublisher;
 
-import android.app.Activity;
+import android.Manifest;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
 
+import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.view.TextureRegistry;
 import jp.espresso3389.video_player.SurfaceTextureForwarder;
 
 public class RtmpPublisherFlutter {
   private SurfaceTextureForwarder ftex;
-  private Activity activity;
+  private PluginRegistry.Registrar registrar;
   private TextureRegistry.SurfaceTextureEntry flutterTexture;
   private CameraClient camera;
   private Streamer streamer;
@@ -24,22 +25,22 @@ public class RtmpPublisherFlutter {
   private int videoBitrate;
   private boolean pausing = false;
 
-  public RtmpPublisherFlutter(Activity activity,
-                       TextureRegistry.SurfaceTextureEntry flutterTexture,
-                       PublisherListener listener) {
+  public RtmpPublisherFlutter(PluginRegistry.Registrar registrar,
+                              TextureRegistry.SurfaceTextureEntry flutterTexture,
+                              PublisherListener listener) {
 
-    this.activity = activity;
+    this.registrar = registrar;
     this.flutterTexture = flutterTexture;
 
     this.streamer = new Streamer();
     this.streamer.setMuxerListener(listener);
 
-    initSurface();
+    initSurfaceAsync();
   }
 
   void initCamera() {
     if (this.camera == null) {
-      this.camera = new CameraClient(activity, mode);
+      this.camera = new CameraClient(registrar, mode);
     } else if (this.camera.getMode() != mode) {
       this.camera.swap();
     }
@@ -79,30 +80,39 @@ public class RtmpPublisherFlutter {
 
   public Camera.Size getCameraSize() { return cameraSize; }
 
-  void initSurface() {
+  void initSurfaceAsync() {
     if (ftex != null)
       return;
 
-    initCamera();
-
-    Camera.Parameters params = camera.open();
-    cameraSize = params.getPreviewSize();
-
-    ftex = new SurfaceTextureForwarder(flutterTexture.surfaceTexture());
-    ftex.setupDestSurface(cameraSize.width, cameraSize.height);
-
-    ftex.setOnFrameDrawn(new SurfaceTextureForwarder.OnFrameDrawn() {
+    PermissionRequester.requestPermissions(registrar, new String[] { Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO }, new PermissionRequester.PermissionsGranted() {
       @Override
-      public void onFrameDrawn(int textureId, SurfaceTexture surfaceTexture) {
-        if (pausing)
+      public void onResult(boolean allGranted) {
+        if (!allGranted)
           return;
-        float[] tx = new float[16];
-        surfaceTexture.getTransformMatrix(tx);
-        streamer.getVideoHandlerListener().onFrameDrawn(textureId, tx, surfaceTexture.getTimestamp());
+        initCamera();
+        camera.open(new CameraClient.OnCameraOpened() {
+          @Override
+          void onCameraOpened(Camera.Parameters params) {
+            cameraSize = params.getPreviewSize();
+
+            ftex = new SurfaceTextureForwarder(flutterTexture.surfaceTexture());
+            ftex.setupDestSurface(cameraSize.width, cameraSize.height);
+
+            ftex.setOnFrameDrawn(new SurfaceTextureForwarder.OnFrameDrawn() {
+              @Override
+              public void onFrameDrawn(int textureId, SurfaceTexture surfaceTexture) {
+                if (pausing)
+                  return;
+                float[] tx = new float[16];
+                surfaceTexture.getTransformMatrix(tx);
+                streamer.getVideoHandlerListener().onFrameDrawn(textureId, tx, surfaceTexture.getTimestamp());
+              }
+            });
+            camera.startPreview(ftex.getSurfaceTexture());
+          }
+        });
       }
     });
-
-    camera.startPreview(ftex.getSurfaceTexture());
   }
 
   public void resume() {
@@ -136,7 +146,7 @@ public class RtmpPublisherFlutter {
 
   // should be explicitly called by Flutter code
   public void onResume() {
-    initSurface();
+    initSurfaceAsync();
   }
 
   // should be explicitly called by Flutter code

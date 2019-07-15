@@ -115,11 +115,17 @@ class HaishinViewController {
   }
 
   static Future _statePaused() async {
-    await _channel.invokeMethod('paused');
+    try {
+      await _channel.invokeMethod('paused');
+    } catch (e) {
+    }
   }
 
   static Future _stateResumed() async {
-    await _channel.invokeMethod('resumed');
+    try {
+      await _channel.invokeMethod('resumed');
+    } catch (e) {
+    }
   }
 }
 

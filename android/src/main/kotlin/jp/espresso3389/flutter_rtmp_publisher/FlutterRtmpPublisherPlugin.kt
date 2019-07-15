@@ -115,7 +115,7 @@ class FlutterRtmpPublisherPlugin(
     override fun onFailedToConnect() {
     }
 
-    public val pub: RtmpPublisherFlutter = RtmpPublisherFlutter(registrar.activity(), flutterTexture, this)
+    public val pub: RtmpPublisherFlutter = RtmpPublisherFlutter(registrar, flutterTexture, this)
 
   }
 }
