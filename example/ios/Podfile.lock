@@ -1,13 +1,16 @@
 PODS:
   - Flutter (1.0.0)
-  - haishin_kit (0.0.1):
+  - flutter_rtmp_publisher (0.0.1):
     - Flutter
     - Logboard
   - Logboard (2.1.0)
+  - screen_keep_on (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `.symlinks/flutter/ios`)
-  - haishin_kit (from `.symlinks/plugins/haishin_kit/ios`)
+  - flutter_rtmp_publisher (from `.symlinks/plugins/flutter_rtmp_publisher/ios`)
+  - screen_keep_on (from `.symlinks/plugins/screen_keep_on/ios`)
 
 SPEC REPOS:
   https://github.com/cocoapods/specs.git:
@@ -16,14 +19,17 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   Flutter:
     :path: ".symlinks/flutter/ios"
-  haishin_kit:
-    :path: ".symlinks/plugins/haishin_kit/ios"
+  flutter_rtmp_publisher:
+    :path: ".symlinks/plugins/flutter_rtmp_publisher/ios"
+  screen_keep_on:
+    :path: ".symlinks/plugins/screen_keep_on/ios"
 
 SPEC CHECKSUMS:
   Flutter: 58dd7d1b27887414a370fcccb9e645c08ffd7a6a
-  haishin_kit: 5821671c014b07f44a1bbc35289a44d2f98daa0f
+  flutter_rtmp_publisher: 967e67be1513915a1343b6674367559d297e7b85
   Logboard: ff780bba1dc55be6f9fc41b4e4e36115ec92f3e0
+  screen_keep_on: bc7e481db4acb53ad6ca44bfd8c1b22dcdce1c48
 
 PODFILE CHECKSUM: 8dfe481be7eab4daff15e9e4ecfdcc3970f196ae
 
-COCOAPODS: 1.7.1
+COCOAPODS: 1.7.3
