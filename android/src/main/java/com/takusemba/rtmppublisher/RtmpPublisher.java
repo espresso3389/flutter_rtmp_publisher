@@ -10,7 +10,7 @@ import android.widget.LinearLayout;
 
 import io.flutter.plugin.common.PluginRegistry;
 
-public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener,
+public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, PublisherListener,
   CameraSurfaceRenderer.OnRendererStateChangedListener {
 
   private PluginRegistry.Registrar registrar;
@@ -20,6 +20,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener,
   private CameraClient camera;
   private Camera.Size cameraSize;
   private CameraCallback cameraCallback;
+  private PublisherListener listener;
 
   public static abstract class CameraCallback {
     public abstract void onCameraSizeDetermined(int width, int height);
@@ -35,7 +36,8 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener,
     this.camera = new CameraClient(registrar.context(), mode);
     this.cameraCallback = cameraCallback;
     this.streamer = new Streamer();
-    this.streamer.setMuxerListener(listener);
+    this.listener = listener;
+    this.streamer.setMuxerListener(this);
 
     glView.setEGLContextClientVersion(2);
     renderer = new CameraSurfaceRenderer();
@@ -91,20 +93,6 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener,
   public void startPublishing(String url) {
     rtmpUrl = url;
     streamer.open(url, width, height);
-    glView.queueEvent(new Runnable() {
-      @Override
-      public void run() {
-        // EGL14.eglGetCurrentContext() should be called from glView thread.
-        final EGLContext context = EGL14.eglGetCurrentContext();
-        glView.post(new Runnable() {
-          @Override
-          public void run() {
-            // back to main thread
-            streamer.startStreaming(context, width, height, audioBitrate, videoBitrate);
-          }
-        });
-      }
-    });
   }
 
   public void stopPublishing() {
@@ -166,6 +154,46 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener,
       }
       isCameraOperating = false;
     }
+  }
+
+
+  @Override
+  public void onStarted() {
+    glView.queueEvent(new Runnable() {
+      @Override
+      public void run() {
+        // EGL14.eglGetCurrentContext() should be called from glView thread.
+        final EGLContext context = EGL14.eglGetCurrentContext();
+        glView.post(new Runnable() {
+          @Override
+          public void run() {
+            // back to main thread
+            streamer.startStreaming(context, width, height, audioBitrate, videoBitrate);
+          }
+        });
+      }
+    });
+    if (listener != null)
+      listener.onStarted();
+  }
+
+  @Override
+  public void onStopped() {
+    if (listener != null)
+      listener.onStopped();
+  }
+
+  @Override
+  public void onDisconnected() {
+    if (listener != null)
+      listener.onDisconnected();
+    stopPublishing();
+  }
+
+  @Override
+  public void onFailedToConnect() {
+    if (listener != null)
+      listener.onFailedToConnect();
   }
 
   @Override

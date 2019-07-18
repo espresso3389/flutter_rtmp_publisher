@@ -87,7 +87,6 @@ class VideoEncoder implements Encoder {
                 // keep running... so use a different thread.
                 while (isEncoding) {
                     if (encoder == null) return;
-                    ByteBuffer[] encoderOutputBuffers = encoder.getOutputBuffers();
                     int inputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
                     if (inputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
 
@@ -101,7 +100,7 @@ class VideoEncoder implements Encoder {
                         listener.onVideoDataEncoded(config, config.length, 0);
                     } else {
                         if (inputBufferId > 0) {
-                            ByteBuffer encodedData = encoderOutputBuffers[inputBufferId];
+                            ByteBuffer encodedData = encoder.getOutputBuffer(inputBufferId);
                             if (encodedData == null) {
                                 continue;
                             }
