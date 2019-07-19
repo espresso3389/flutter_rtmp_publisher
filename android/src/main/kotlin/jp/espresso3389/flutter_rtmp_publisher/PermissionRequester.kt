@@ -2,8 +2,8 @@ package jp.espresso3389.flutter_rtmp_publisher
 
 import android.content.pm.PackageManager
 import android.os.Handler
-import android.support.v4.app.ActivityCompat
-import android.support.v4.content.ContextCompat
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.PluginRegistry
 
 typealias OnPermissionGranted = (allGranted: Boolean) -> Unit

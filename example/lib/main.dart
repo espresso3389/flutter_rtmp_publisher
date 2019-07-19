@@ -10,7 +10,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final controller = HaishinViewController();
+  final controller = RtmpLiveViewController();
 
   @override
   void initState() {
@@ -26,7 +26,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future initAsync() async {
-    await controller.initialize(width: 640, height: 480, fps: 30, camera: HaishinViewCameraPosition.back);
+    await controller.initialize(width: 640, height: 480, fps: 30, camera: RtmpLiveViewCameraPosition.back);
   }
 
   @override
@@ -46,7 +46,7 @@ class _MyAppState extends State<MyApp> {
           child: Container(
             width: 400,
             height: 400,
-            child: HaishinView(controller: controller)
+            child: RtmpLiveView(controller: controller)
           ),
         ),
       ),
