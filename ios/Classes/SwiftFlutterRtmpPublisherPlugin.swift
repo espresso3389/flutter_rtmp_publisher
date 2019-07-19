@@ -5,18 +5,18 @@ import VideoToolbox
 
 public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "flutter_rtmp_publisher", binaryMessenger: registrar.messenger())
+    let channel = FlutterMethodChannel(name: "jp.espresso3389.flutter_rtmp_publisher", binaryMessenger: registrar.messenger())
     let instance = SwiftFlutterRtmpPublisherPlugin(registrar: registrar)
     registrar.addMethodCallDelegate(instance, channel: channel)
   }
-  
+
   init(registrar: FlutterPluginRegistrar) {
     self.registrar = registrar
   }
-  
+
   let registrar: FlutterPluginRegistrar
   var instances: [Int64:Haishin] = [:]
-  
+
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     do {
       if call.method == "initFramework" {
@@ -88,13 +88,13 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
       result(nil)
     }
   }
-  
+
   enum HaishinError : Error {
     case InvalidArgument
     case InvalidInstance
     case InvalidInstanceId
   }
-  
+
   func getHaishin(_ call: FlutterMethodCall) throws -> Haishin {
     guard let args = call.arguments as! NSDictionary? else { throw HaishinError.InvalidArgument }
     guard let tex = args["tex"] as! NSNumber? else { throw HaishinError.InvalidArgument }
@@ -109,22 +109,22 @@ class Haishin : NSObject {
   init(registrar: FlutterPluginRegistrar) {
     self.registrar = registrar
   }
-  
+
   let registrar: FlutterPluginRegistrar
   var tex: Int64 = -1
   var rtmpConnection: RTMPConnection?
   var rtmpStream: RTMPStream?
-  
+
   let _lastFrame = AtomicReference<CVPixelBuffer?>(initialValue: nil)
-  
+
   var session: AVCaptureSession? = nil
   var currentStream: NetStream? = nil
-  
+
   var streamName: String = "Untitled"
-  
+
   var orientation: AVCaptureVideoOrientation = .portrait
   var position: AVCaptureDevice.Position = .back
-  
+
   public static func initAVFoundation() throws {
     let session = AVAudioSession.sharedInstance()
     try session.setPreferredSampleRate(44_100)
@@ -137,7 +137,7 @@ class Haishin : NSObject {
     try session.setMode(AVAudioSession.Mode.default)
     try session.setActive(true)
   }
-  
+
   public func close() {
     stopPreview();
     rtmpConnection?.close()
@@ -146,14 +146,14 @@ class Haishin : NSObject {
     rtmpStream = nil
     rtmpConnection = nil
   }
-  
+
   // camera: "back" or "front"
   public func initStream(width: Int, height: Int, fps: Int, camera: String) {
     close()
-    
+
     rtmpConnection = RTMPConnection()
     let sampleRate:Double = 44_100
-    
+
     let session = AVAudioSession.sharedInstance()
     do {
       try session.setPreferredSampleRate(44_100)
@@ -166,9 +166,9 @@ class Haishin : NSObject {
       try session.setActive(true)
     } catch {
     }
-    
+
     rtmpStream = RTMPStream(connection: rtmpConnection!)
-    
+
     rtmpStream!.captureSettings = [
       "fps": fps, // FPS
       "sessionPreset": AVCaptureSession.Preset.medium.rawValue, // input video width/height
@@ -210,29 +210,29 @@ class Haishin : NSObject {
          */
       ],
     ]
-    
+
     // 2nd arguemnt set false
     rtmpStream!.attachAudio(AVCaptureDevice.default(for: AVMediaType.audio), automaticallyConfiguresApplicationAudioSession: false) { error in
       print(error)
     }
-    
+
     // Screen capture
     //rtmpStream.attachScreen(ScreenCaptureSession(shared: UIApplication.shared))
-    
+
     let cameraPos = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
     rtmpStream!.attachCamera(DeviceUtil.device(withPosition: cameraPos)) { error in
       print(error)
     }
   }
-  
+
   public func stopPreview() {
     attachStream(nil)
   }
-  
+
   public func startPreview() {
     attachStream(rtmpStream)
   }
-  
+
   public func onair(rtmpUrl: String, streamName: String) -> Bool {
     guard rtmpConnection != nil && rtmpStream != nil else {
       return false
@@ -243,23 +243,23 @@ class Haishin : NSObject {
     self.streamName = streamName
     return true
   }
-  
+
   public func pause() {
     rtmpStream?.pause();
   }
-  
+
   public func resume() {
     rtmpStream?.resume();
   }
-    
+
   public func paused() {
     // TODO: Implement some
   }
-  
+
   public func resumed() {
     // TODO: Implement some
   }
-  
+
   public func disconnect() -> Bool {
     guard rtmpConnection != nil && rtmpStream != nil else {
       return false
@@ -268,7 +268,7 @@ class Haishin : NSObject {
     rtmpConnection!.close()
     return true
   }
-  
+
   open func attachStream(_ stream: NetStream?) {
     guard let stream: NetStream = stream else {
       session?.stopRunning()
@@ -276,19 +276,19 @@ class Haishin : NSObject {
       currentStream = nil
       return
     }
-    
+
     stream.mixer.session.beginConfiguration()
     session = stream.mixer.session
     orientation = stream.mixer.videoIO.orientation
     stream.mixer.session.commitConfiguration()
-    
+
     stream.lockQueue.async {
       stream.mixer.videoIO.drawable = self
       self.currentStream = stream
       stream.mixer.startRunning()
     }
   }
-  
+
   @objc
   func rtmpStatusHandler(_ notification: Notification) {
     let e = Event.from(notification)
@@ -296,6 +296,22 @@ class Haishin : NSObject {
       switch code {
       case RTMPConnection.Code.connectSuccess.rawValue:
         rtmpStream!.publish(streamName)
+
+      // don't know what they mean
+      case RTMPConnection.Code.callBadVersion.rawValue:
+      case RTMPConnection.Code.callFailed.rawValue:
+      case RTMPConnection.Code.callProhibited.rawValue:
+
+      // closing
+      case RTMPConnection.Code.connectClosed.rawValue:
+
+      // connection failures
+      case RTMPConnection.Code.connectAppshutdown.rawValue:
+      case RTMPConnection.Code.connectFailed.rawValue:
+      case RTMPConnection.Code.connectIdleTimeOut.rawValue:
+      case RTMPConnection.Code.connectInvalidApp.rawValue:
+      case RTMPConnection.Code.connectNetworkChange.rawValue:
+      case RTMPConnection.Code.connectRejected.rawValue:
       default:
         break
       }
@@ -311,7 +327,7 @@ extension Haishin : FlutterTexture {
 }
 
 extension Haishin : NetStreamDrawable {
-  
+
   func draw(image: CIImage) {
     var cvPixBuf: CVPixelBuffer? = nil
     if #available(iOS 10.0, *) {

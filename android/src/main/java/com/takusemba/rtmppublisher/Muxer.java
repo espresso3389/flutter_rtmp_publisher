@@ -3,132 +3,170 @@ package com.takusemba.rtmppublisher;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.Message;
 
 import net.butterflytv.rtmp_client.RTMPMuxer;
 
-class Muxer {
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-    private static final int MSG_OPEN = 0;
-    private static final int MSG_CLOSE = 1;
-    private static final int MSG_SEND_VIDEO = 2;
-    private static final int MSG_SEND_AUDIO = 3;
+public class Muxer {
 
-    private Handler handler;
+  private final Handler uiHandler = new Handler(Looper.getMainLooper());
+  private RTMPMuxer rtmpMuxer = new RTMPMuxer();
+  private StatusListener listener;
 
-    private RTMPMuxer rtmpMuxer = new RTMPMuxer();
-    private PublisherListener listener;
+  private HandlerThread muxerThread;
+  private Handler muxerThreadHandler;
 
-    private boolean disconnected = false;
-    private boolean closed = false;
+  private boolean disconnected = false;
+  private AtomicBoolean paused = new AtomicBoolean();
 
-    void setOnMuxerStateListener(PublisherListener listener) {
-        this.listener = listener;
+  public void setOnMuxerStateListener(StatusListener listener) {
+    this.listener = listener;
+  }
+
+  public Muxer() {
+  }
+
+  private boolean ensureConnected() {
+    if (isConnectedNoHandler())
+      return true;
+    if (listener != null) {
+      uiHandler.post(new Runnable() {
+        @Override
+        public void run() {
+          if (disconnected) return;
+          listener.onDisconnected();
+          disconnected = true;
+        }
+      });
     }
+    return false;
+  }
 
-    Muxer() {
-        final Handler uiHandler = new Handler(Looper.getMainLooper());
-        HandlerThread handlerThread = new HandlerThread("Muxer");
-        handlerThread.start();
-        handler = new Handler(handlerThread.getLooper(), new Handler.Callback() {
+  public void open(final String url, final int width, final int height) {
+    closeInternal();
+    if (muxerThread == null) {
+      muxerThread = new HandlerThread("Muxer");
+      muxerThread.start();
+      muxerThreadHandler = new Handler(muxerThread.getLooper());
+    }
+    muxerThreadHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        rtmpMuxer.open(url, width, height);
+        if (listener != null) {
+          uiHandler.post(new Runnable() {
             @Override
-            public boolean handleMessage(Message msg) {
-                switch (msg.what) {
-                    case MSG_OPEN:
-                        rtmpMuxer.open((String) msg.obj, msg.arg1, msg.arg2);
-                        if (listener != null) {
-                            uiHandler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (isConnected()) {
-                                        listener.onStarted();
-                                        disconnected = false;
-                                        closed = false;
-                                    } else {
-                                        listener.onFailedToConnect();
-                                    }
-                                }
-                            });
-                        }
-                        break;
-                    case MSG_CLOSE:
-                        rtmpMuxer.close();
-                        if (listener != null) {
-                            uiHandler.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    listener.onStopped();
-                                    closed = true;
-                                }
-                            });
-                        }
-                        break;
-                    case MSG_SEND_VIDEO: {
-                        if (isConnected()) {
-                            rtmpMuxer.writeVideo((byte[]) msg.obj, 0, msg.arg1, msg.arg2);
-                        } else {
-                            if (listener != null) {
-                                uiHandler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if (closed || disconnected) return;
-                                        listener.onDisconnected();
-                                        disconnected = true;
-                                    }
-                                });
-                            }
-                        }
-                        break;
-                    }
-                    case MSG_SEND_AUDIO: {
-                        if (isConnected()) {
-                            rtmpMuxer.writeAudio((byte[]) msg.obj, 0, msg.arg1, msg.arg2);
-                        } else {
-                            if (listener != null) {
-                                uiHandler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if (closed || disconnected) return;
-                                        listener.onDisconnected();
-                                        disconnected = true;
-                                    }
-                                });
-                            }
-                        }
-                        break;
-                    }
-                }
-                return false;
+            public void run() {
+              if (isConnectedNoHandler()) {
+                listener.onConnected();
+                disconnected = false;
+              } else {
+                listener.onFailedToConnect();
+              }
             }
+          });
+        }
+      }
+    });
+  }
+
+  public void sendVideo(final byte[] data, final int length, final int timestamp) {
+    if (muxerThreadHandler == null)
+      return;
+    muxerThreadHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        if (ensureConnected() && !paused.get())
+          rtmpMuxer.writeVideo(data, 0, length, timestamp);
+      }
+    });
+  }
+
+  public void sendAudio(final byte[] data, final int length, final int timestamp) {
+    if (muxerThreadHandler == null)
+      return;
+    muxerThreadHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        if (ensureConnected() && !paused.get())
+          rtmpMuxer.writeAudio(data, 0, length, timestamp);
+      }
+    });
+  }
+
+  private void closeInternal() {
+    if (muxerThread == null)
+      return;
+    muxerThreadHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        rtmpMuxer.close();
+      }
+    });
+  }
+
+  public void close() {
+    closeInternal();
+    muxerThread.quitSafely();
+  }
+
+  public void pause() {
+    if (paused.getAndSet(true) == false) {
+      if (listener != null) {
+        uiHandler.post(new Runnable() {
+          @Override
+          public void run() {
+            listener.onPaused();
+          }
         });
+      }
     }
+  }
 
-    void open(String url, int width, int height) {
-        Message message = handler.obtainMessage(MSG_OPEN, url);
-        message.arg1 = width;
-        message.arg2 = height;
-        handler.sendMessage(message);
+  public void resume() {
+    if (paused.getAndSet(false) == true) {
+      if (listener != null) {
+        uiHandler.post(new Runnable() {
+          @Override
+          public void run() {
+            listener.onResumed();
+          }
+        });
+      }
     }
+  }
 
-    void sendVideo(byte[] data, int length, int timestamp) {
-        Message message = handler.obtainMessage(MSG_SEND_VIDEO, data);
-        message.arg1 = length;
-        message.arg2 = timestamp;
-        handler.sendMessage(message);
+  public boolean isConnected() {
+    if (muxerThread == null)
+      return false; // apparently, we don't connect to any server
+    try {
+      final AtomicBoolean ret = new AtomicBoolean();
+      final CountDownLatch latch = new CountDownLatch(1);
+      muxerThreadHandler.post(new Runnable() {
+        @Override
+        public void run() {
+          ret.set(isConnectedNoHandler());
+          latch.countDown();
+        }
+      });
+      latch.await();
+      return ret.get();
+    } catch (InterruptedException e) {
+      return false; // FIXME
     }
+  }
 
-    void sendAudio(final byte[] data, final int length, final int timestamp) {
-        Message message = handler.obtainMessage(MSG_SEND_AUDIO, data);
-        message.arg1 = length;
-        message.arg2 = timestamp;
-        handler.sendMessage(message);
-    }
+  private boolean isConnectedNoHandler() {
+    return rtmpMuxer.isConnected() != 0;
+  }
 
-    void close() {
-        handler.sendEmptyMessage(MSG_CLOSE);
-    }
-
-    boolean isConnected() {
-        return rtmpMuxer.isConnected() == 1;
-    }
+  public interface StatusListener {
+    void onConnected();
+    void onFailedToConnect();
+    void onPaused();
+    void onResumed();
+    void onDisconnected();
+  }
 }

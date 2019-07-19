@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart' as prefix0;
 import 'package:rxdart/rxdart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,15 +10,19 @@ enum RtmpLiveViewCameraPosition {
 }
 
 class RtmpLiveViewController {
-  static const MethodChannel _channel = const MethodChannel('flutter_rtmp_publisher');
-  static bool _avfInited = false;
+  static const MethodChannel _channel = const MethodChannel('jp.espresso3389.flutter_rtmp_publisher');
+  static bool _fxInitialized = false;
 
   var _subject = BehaviorSubject<String>();
   int _tex = -1;
   int _width;
   int _height;
   int _fps;
+  bool _isStreaming = false;
   RtmpLiveViewCameraPosition _camera = RtmpLiveViewCameraPosition.back;
+  StreamSubscription<dynamic> _sub;
+
+  bool get isStreaming => _isStreaming;
 
   int get width => _width;
   int get height => _height;
@@ -25,9 +30,10 @@ class RtmpLiveViewController {
   RtmpLiveViewCameraPosition get camera => _camera;
 
   void dispose() {
-    _subject?.sink?.add('dispose');
     _subject?.close();
     _subject = null;
+    _sub?.cancel();
+    _sub = null;
     close();
   }
 
@@ -39,12 +45,11 @@ class RtmpLiveViewController {
     _width = null;
     _height = null;
     _fps = null;
-    _subject?.sink?.add('close');
     await _channel.invokeMethod('close', { 'tex': tmp });
   }
 
   Future _initTex() async {
-    if (!_avfInited) {
+    if (!_fxInitialized) {
       await _channel.invokeMethod('initFramework');
     }
     if (_tex == -1)
@@ -61,6 +66,32 @@ class RtmpLiveViewController {
     _fps = fps;
     _camera = camera;
 
+    _sub = EventChannel('jp.espresso3389.flutter_rtmp_publisher.instance-$_tex').receiveBroadcastStream().listen((data) {
+      if (data is String) {
+        print('RtmpLiveViewController: state changed: $data');
+        switch(data) {
+          case 'connected':
+            _isStreaming = true;
+            _subject?.sink?.add('connected');
+            break;
+          case 'failedToConnect':
+            _isStreaming = false; // basically we don't need this
+            _subject?.sink?.add('failedToConnect');
+            break;
+          case 'disconnected':
+            _isStreaming = false;
+            _subject?.sink?.add('disconnected');
+            break;
+          case 'paused':
+            _subject?.sink?.add('paused');
+            break;
+          case 'resumed':
+            _subject?.sink?.add('resumed');
+            break;
+        }
+      }
+    });
+
     await _channel.invokeMethod('initCaptureConfig', {
       'tex': _tex,
       'width': _width,
@@ -72,25 +103,29 @@ class RtmpLiveViewController {
     _subject.sink.add('config');
 
     if (restartPreview)
-      await startPreview();
+      await _startPreview();
   }
 
+  // FIXME: What's the definition of pause??
   Future pause() async {
     _checkParams();
     await _channel.invokeMethod('pause', { 'tex': _tex });
   }
 
+  // FIXME: What's the definition of resume??
   Future resume() async {
     _checkParams();
     await _channel.invokeMethod('resume', { 'tex': _tex });
   }
 
-  Future startPreview() async {
+  // FIXME: Android anyway does not implement this :(
+  Future _startPreview() async {
     _checkParams();
     await _channel.invokeMethod('startPreview', { 'tex': _tex });
   }
 
-  Future stopPreview() async {
+  // FIXME: Android anyway does not implement this :(
+  Future _stopPreview() async {
     _checkParams();
     await _channel.invokeMethod('stopPreview', { 'tex': _tex });
   }
@@ -114,6 +149,7 @@ class RtmpLiveViewController {
       throw Exception('The instance not initialized.');
   }
 
+  // unlike pause, it is app-life-cycle related func.
   static Future _statePaused() async {
     try {
       await _channel.invokeMethod('paused');
@@ -121,6 +157,7 @@ class RtmpLiveViewController {
     }
   }
 
+  // unlike resume, it is app-life-cycle related func.
   static Future _stateResumed() async {
     try {
       await _channel.invokeMethod('resumed');

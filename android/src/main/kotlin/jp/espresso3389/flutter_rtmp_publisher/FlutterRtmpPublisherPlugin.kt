@@ -1,11 +1,10 @@
 package jp.espresso3389.flutter_rtmp_publisher
 
 import android.Manifest
-import android.util.Log
 import android.util.LongSparseArray
 import com.takusemba.rtmppublisher.CameraMode
-import com.takusemba.rtmppublisher.PublisherListener
 import com.takusemba.rtmppublisher.RtmpPublisher
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -25,7 +24,7 @@ class FlutterRtmpPublisherPlugin(
   companion object {
     @JvmStatic
     fun registerWith(registrar: Registrar) {
-      val channel = MethodChannel(registrar.messenger(), "flutter_rtmp_publisher")
+      val channel = MethodChannel(registrar.messenger(), "jp.espresso3389.flutter_rtmp_publisher")
       channel.setMethodCallHandler(FlutterRtmpPublisherPlugin(registrar))
     }
   }
@@ -35,7 +34,7 @@ class FlutterRtmpPublisherPlugin(
       call.method == "alloc" -> {
         val tex = registrar.textures().createSurfaceTexture()
         val textureId = tex.id()
-        val rtmpPub = RtmpPublisherWrapper(registrar, tex)
+        val rtmpPub = RtmpPublisherWrapper(textureId, registrar, tex)
         textures.put(textureId, rtmpPub)
         result.success(textureId)
       }
@@ -118,28 +117,44 @@ class FlutterRtmpPublisherPlugin(
     }
   }
 
-  class RtmpPublisherWrapper(registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): PublisherListener {
-    override fun onStarted() {
-      Log.i("RtmpPublisherWrapper","onStarted")
-    }
-
-    override fun onStopped() {
-      Log.i("RtmpPublisherWrapper","onStopped")
-    }
-
-    override fun onDisconnected() {
-      Log.i("RtmpPublisherWrapper","onDisconnected")
-    }
-
-    override fun onFailedToConnect() {
-      Log.i("RtmpPublisherWrapper","onFailedToConnect")
-    }
-
+  class RtmpPublisherWrapper(textureId: Long, registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): RtmpPublisher.RtmpPublisherListener {
+    private val eventChannel: EventChannel = EventChannel(registrar.messenger(), "jp.espresso3389.flutter_rtmp_publisher.instance-$textureId")
     private val glSurfaceView: FlutterGLSurfaceView = FlutterGLSurfaceView(registrar, flutterTexture.surfaceTexture())
     val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
       override fun onCameraSizeDetermined(width: Int, height: Int) { glSurfaceView.setSurfaceTextureSize(width, height) }
     })
+    private var eventSink: EventChannel.EventSink? = null
 
+    init {
+      eventChannel.setStreamHandler(object: EventChannel.StreamHandler {
+        override fun onListen(obj: Any?, eventSink: EventChannel.EventSink?) {
+          this@RtmpPublisherWrapper.eventSink = eventSink
+        }
+        override fun onCancel(obj: Any?) {
+          this@RtmpPublisherWrapper.eventSink = null
+        }
+      })
+    }
+
+    override fun onConnected() {
+      eventSink!!.success("connected")
+    }
+
+    override fun onFailedToConnect() {
+      eventSink!!.success("failedToConnect")
+    }
+
+    override fun onPaused() {
+      eventSink!!.success("paused")
+    }
+
+    override fun onResumed() {
+      eventSink!!.success("resumed")
+    }
+
+    override fun onDisconnected() {
+      eventSink!!.success("disconnected")
+    }
   }
 }
 

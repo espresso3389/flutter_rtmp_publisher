@@ -10,7 +10,7 @@ import android.widget.LinearLayout;
 
 import io.flutter.plugin.common.PluginRegistry;
 
-public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, PublisherListener,
+public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, Muxer.StatusListener,
   CameraSurfaceRenderer.OnRendererStateChangedListener {
 
   private PluginRegistry.Registrar registrar;
@@ -20,7 +20,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, P
   private CameraClient camera;
   private Camera.Size cameraSize;
   private CameraCallback cameraCallback;
-  private PublisherListener listener;
+  private RtmpPublisherListener listener;
 
   public static abstract class CameraCallback {
     public abstract void onCameraSizeDetermined(int width, int height);
@@ -29,7 +29,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, P
   public RtmpPublisher(PluginRegistry.Registrar registrar,
                        GLSurfaceView glView,
                        CameraMode mode,
-                       PublisherListener listener,
+                       RtmpPublisherListener listener,
                        CameraCallback cameraCallback) {
     this.registrar = registrar;
     this.glView = glView;
@@ -105,11 +105,24 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, P
     return streamer.isStreaming();
   }
 
-  public void pause() {
+  public boolean isPaused() { return streamer.isPaused(); }
 
+  public void pause() {
+    if (!streamer.isPaused()) {
+      streamer.pause();
+      if (listener != null) {
+        listener.onPaused();
+      }
+    }
   }
 
   public void resume() {
+    if (streamer.isPaused()) {
+      streamer.resume();
+      if (listener != null) {
+        listener.onResumed();
+      }
+    }
   }
 
   public void onResume() {
@@ -156,9 +169,11 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, P
     }
   }
 
-
+  //
+  // Muxer.StatusListener
+  //
   @Override
-  public void onStarted() {
+  public void onConnected() {
     glView.queueEvent(new Runnable() {
       @Override
       public void run() {
@@ -174,28 +189,33 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, P
       }
     });
     if (listener != null)
-      listener.onStarted();
+      listener.onConnected();
   }
-
-  @Override
-  public void onStopped() {
-    if (listener != null)
-      listener.onStopped();
-  }
-
-  @Override
-  public void onDisconnected() {
-    if (listener != null)
-      listener.onDisconnected();
-    stopPublishing();
-  }
-
   @Override
   public void onFailedToConnect() {
     if (listener != null)
       listener.onFailedToConnect();
   }
+  @Override
+  public void onPaused() {
+    if (listener != null)
+      listener.onPaused();
+  }
+  @Override
+  public void onResumed() {
+    if (listener != null)
+      listener.onResumed();
+  }
+  @Override
+  public void onDisconnected() {
+    stopPublishing();
+    if (listener != null)
+      listener.onDisconnected();
+  }
 
+  //
+  // CameraSurfaceRenderer.OnRendererStateChangedListener
+  //
   @Override
   public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
     onResume();
@@ -203,14 +223,24 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, P
     surfaceTexture.setOnFrameAvailableListener(this);
     camera.startPreview(surfaceTexture);
   }
-
   @Override
   public void onFrameDrawn(int textureId, float[] transform, long timestamp) {
     // no-op
   }
 
+  //
+  // SurfaceTexture.OnFrameAvailableListener
+  //
   @Override
   public void onFrameAvailable(SurfaceTexture surfaceTexture) {
     glView.requestRender();
+  }
+
+  public interface RtmpPublisherListener {
+    void onConnected();
+    void onFailedToConnect();
+    void onDisconnected();
+    void onPaused();
+    void onResumed();
   }
 }
