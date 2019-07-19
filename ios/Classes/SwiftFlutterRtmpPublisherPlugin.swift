@@ -73,6 +73,10 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
         try getHaishin(call).stopPreview()
         result(nil)
         return
+      } else if call.method == "orientation" {
+        try getHaishin(call).onOrientation()
+        result(nil)
+        return
       } else if call.method == "close" {
         let inst = try getHaishin(call)
         inst.close()
@@ -111,7 +115,21 @@ class Haishin : NSObject {
   }
 
   let registrar: FlutterPluginRegistrar
-  var tex: Int64 = -1
+  private var _tex: Int64 = -1
+  var tex: Int64 {
+    get { return _tex }
+    set {
+      if (_tex < 0) {
+        _tex = newValue
+        eventChannel = FlutterEventChannel(name: "jp.espresso3389.flutter_rtmp_publisher.instance-\(_tex)", binaryMessenger: registrar.messenger())
+        eventChannel?.setStreamHandler(self)
+      }
+    }
+  }
+  
+  var eventChannel: FlutterEventChannel?
+  var eventSink: FlutterEventSink?
+  
   var rtmpConnection: RTMPConnection?
   var rtmpStream: RTMPStream?
 
@@ -223,6 +241,10 @@ class Haishin : NSObject {
     rtmpStream!.attachCamera(DeviceUtil.device(withPosition: cameraPos)) { error in
       print(error)
     }
+    
+    // emulate Android's cameraSize behavior
+    let cameraSize:[String: Any?] = ["name": "cameraSize", "width": width, "height": height]
+    eventSink?(cameraSize)
   }
 
   public func stopPreview() {
@@ -246,27 +268,37 @@ class Haishin : NSObject {
 
   public func pause() {
     rtmpStream?.pause();
+    eventSink?("paused")
   }
 
   public func resume() {
     rtmpStream?.resume();
+    eventSink?("resume")
   }
 
   public func paused() {
     // TODO: Implement some
+    print("paused not yet implemented on iOS.")
   }
 
   public func resumed() {
     // TODO: Implement some
+    print("resumed not yet implemented on iOS.")
   }
 
   public func disconnect() -> Bool {
     guard rtmpConnection != nil && rtmpStream != nil else {
       return false
     }
+    // NOTE: disconnect event does not fire by expcilit close call anyway
     rtmpConnection!.removeEventListener(Event.RTMP_STATUS, selector: #selector(rtmpStatusHandler), observer: self)
     rtmpConnection!.close()
+    eventSink?("disconnected")
     return true
+  }
+  
+  public func onOrientation() {
+    // TODO: Implement onOrientation event correctly
   }
 
   open func attachStream(_ stream: NetStream?) {
@@ -296,27 +328,47 @@ class Haishin : NSObject {
       switch code {
       case RTMPConnection.Code.connectSuccess.rawValue:
         rtmpStream!.publish(streamName)
-
+        eventSink?("connected")
+        break
       // don't know what they mean
-      case RTMPConnection.Code.callBadVersion.rawValue:
-      case RTMPConnection.Code.callFailed.rawValue:
-      case RTMPConnection.Code.callProhibited.rawValue:
+      case RTMPConnection.Code.callBadVersion.rawValue: break
+      case RTMPConnection.Code.callFailed.rawValue: break
+      case RTMPConnection.Code.callProhibited.rawValue: break
 
-      // closing
+      // closed by the peer?
       case RTMPConnection.Code.connectClosed.rawValue:
+        eventSink?("disconnected")
+        break
 
       // connection failures
-      case RTMPConnection.Code.connectAppshutdown.rawValue:
-      case RTMPConnection.Code.connectFailed.rawValue:
-      case RTMPConnection.Code.connectIdleTimeOut.rawValue:
-      case RTMPConnection.Code.connectInvalidApp.rawValue:
-      case RTMPConnection.Code.connectNetworkChange.rawValue:
+      case RTMPConnection.Code.connectAppshutdown.rawValue: fallthrough
+      case RTMPConnection.Code.connectFailed.rawValue: fallthrough
+      case RTMPConnection.Code.connectIdleTimeOut.rawValue: fallthrough
+      case RTMPConnection.Code.connectInvalidApp.rawValue: fallthrough
+      case RTMPConnection.Code.connectNetworkChange.rawValue: fallthrough
       case RTMPConnection.Code.connectRejected.rawValue:
+        eventSink?("failedToConnect")
+        break
+        
       default:
         break
       }
     }
   }
+}
+
+extension Haishin : FlutterStreamHandler {
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    self.eventSink = events
+    return nil
+  }
+  
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
+  }
+  
+  
 }
 
 extension Haishin : FlutterTexture {
