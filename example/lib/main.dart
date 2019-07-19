@@ -38,7 +38,7 @@ class _MyAppState extends State<MyApp> {
           actions: <Widget>[
             IconButton(icon: Icon(Icons.cast_connected),
             onPressed: () {
-              controller.connect(rtmpUrl: 'rtmp://dev.cuminas.jp:1935/hls/test', name: 'main');
+              controller.connect(rtmpUrl: 'rtmp://dev.cuminas.jp:1935/hls', name: 'test');
             },)
           ],
         ),
