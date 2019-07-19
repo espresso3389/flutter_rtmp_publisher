@@ -31,6 +31,11 @@ public class Muxer {
   private boolean ensureConnected() {
     if (isConnectedNoHandler())
       return true;
+    postDisconnected();
+    return false;
+  }
+
+  private void postDisconnected() {
     if (listener != null) {
       uiHandler.post(new Runnable() {
         @Override
@@ -41,7 +46,6 @@ public class Muxer {
         }
       });
     }
-    return false;
   }
 
   public void open(final String url, final int width, final int height) {
@@ -97,7 +101,7 @@ public class Muxer {
   }
 
   private void closeInternal() {
-    if (muxerThread == null)
+    if (muxerThreadHandler == null)
       return;
     muxerThreadHandler.post(new Runnable() {
       @Override
@@ -109,7 +113,10 @@ public class Muxer {
 
   public void close() {
     closeInternal();
+    muxerThreadHandler = null;
     muxerThread.quitSafely();
+    muxerThread = null;
+    postDisconnected();
   }
 
   public void pause() {
