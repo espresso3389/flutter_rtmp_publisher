@@ -57,6 +57,14 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
         try getHaishin(call).resume()
         result(nil)
         return
+      } else if call.method == "paused" {
+        try getHaishin(call).paused()
+        result(nil)
+        return
+      } else if call.method == "resumed" {
+        try getHaishin(call).resumed()
+        result(nil)
+        return
       } else if call.method == "startPreview" {
         try getHaishin(call).startPreview()
         result(nil)
@@ -242,6 +250,14 @@ class Haishin : NSObject {
   
   public func resume() {
     rtmpStream?.resume();
+  }
+    
+  public func paused() {
+    // TODO: Implement some
+  }
+  
+  public func resumed() {
+    // TODO: Implement some
   }
   
   public func disconnect() -> Bool {
