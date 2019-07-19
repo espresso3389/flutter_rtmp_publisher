@@ -110,8 +110,8 @@ class FlutterRtmpPublisherPlugin(
         rtmpPub.pub.stopPublishing()
         result.success(true)
       }
-      call.method == "initAVFoundation" -> {
-        // FIXME: name should be changed but it is suitable for some initialization
+      call.method == "initFramework" -> {
+        // nothing for framework initialization
         result.success(true)
       }
       else -> result.notImplemented()

@@ -19,7 +19,7 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
   
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     do {
-      if call.method == "initAVFoundation" {
+      if call.method == "initFramework" {
         try Haishin.initAVFoundation()
         result(nil)
         return

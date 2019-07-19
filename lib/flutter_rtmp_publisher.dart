@@ -3,12 +3,12 @@ import 'package:rxdart/rxdart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-enum HaishinViewCameraPosition {
+enum RtmpLiveViewCameraPosition {
   front,
   back
 }
 
-class HaishinViewController {
+class RtmpLiveViewController {
   static const MethodChannel _channel = const MethodChannel('flutter_rtmp_publisher');
   static bool _avfInited = false;
 
@@ -17,16 +17,16 @@ class HaishinViewController {
   int _width;
   int _height;
   int _fps;
-  HaishinViewCameraPosition _camera = HaishinViewCameraPosition.back;
+  RtmpLiveViewCameraPosition _camera = RtmpLiveViewCameraPosition.back;
 
   int get width => _width;
   int get height => _height;
   int get fps => _fps;
-  HaishinViewCameraPosition get camera => _camera;
+  RtmpLiveViewCameraPosition get camera => _camera;
 
   void dispose() {
-    _subject.sink.add('dispose');
-    _subject.close();
+    _subject?.sink?.add('dispose');
+    _subject?.close();
     _subject = null;
     close();
   }
@@ -45,13 +45,13 @@ class HaishinViewController {
 
   Future _initTex() async {
     if (!_avfInited) {
-      await _channel.invokeMethod('initAVFoundation');
+      await _channel.invokeMethod('initFramework');
     }
     if (_tex == -1)
       _tex = await _channel.invokeMethod('alloc');
   }
 
-  Future initialize({@required int width, @required int height, @required int fps, @required HaishinViewCameraPosition camera, bool restartPreview = true}) async {
+  Future initialize({@required int width, @required int height, @required int fps, @required RtmpLiveViewCameraPosition camera, bool restartPreview = true}) async {
 
     if (_tex == -1)
       await _initTex();
@@ -66,7 +66,7 @@ class HaishinViewController {
       'width': _width,
       'height': _height,
       'fps': _fps,
-      'camera': _camera == HaishinViewCameraPosition.back ? 'back' : 'front'
+      'camera': _camera == RtmpLiveViewCameraPosition.back ? 'back' : 'front'
     });
 
     _subject.sink.add('config');
@@ -129,16 +129,16 @@ class HaishinViewController {
   }
 }
 
-class HaishinView extends StatefulWidget {
+class RtmpLiveView extends StatefulWidget {
   @override
-  _HaishinViewState createState() => _HaishinViewState();
+  _RtmpLiveViewState createState() => _RtmpLiveViewState();
 
-  HaishinViewController controller;
+  RtmpLiveViewController controller;
 
-  HaishinView({Key key, @required this.controller}) : super(key: key);
+  RtmpLiveView({Key key, @required this.controller}) : super(key: key);
 }
 
-class _HaishinViewState extends State<HaishinView> with WidgetsBindingObserver {
+class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -154,9 +154,9 @@ class _HaishinViewState extends State<HaishinView> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      HaishinViewController._statePaused();
+      RtmpLiveViewController._statePaused();
     } else if (state == AppLifecycleState.resumed) {
-      HaishinViewController._stateResumed();
+      RtmpLiveViewController._stateResumed();
     }
   }
 
