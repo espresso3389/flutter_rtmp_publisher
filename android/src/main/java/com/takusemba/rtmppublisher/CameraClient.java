@@ -11,6 +11,7 @@ import android.view.Surface;
 import android.view.WindowManager;
 
 import java.io.IOException;
+import java.util.List;
 
 import static android.content.Context.WINDOW_SERVICE;
 
@@ -23,14 +24,16 @@ class CameraClient {
   private int cameraOrientation;
   private Camera.Size cameraSize;
 
-  private static final int desiredHeight = 1280;
-  private static final int desiredWidth = 720;
+  private int desiredHeight;
+  private int desiredWidth;
 
   public int getCameraOrientation() { return cameraOrientation; }
 
-  CameraClient(Context context, CameraMode mode) {
+  CameraClient(Context context, CameraMode mode, int desiredWidth, int desiredHeight) {
     this.context = context;
     this.mode = mode;
+    this.desiredWidth = desiredWidth;
+    this.desiredHeight = desiredHeight;
   }
 
   Camera.Parameters open() {
@@ -90,13 +93,29 @@ class CameraClient {
 
   private void setParameters(Camera.Parameters params) {
     boolean isDesiredSizeFound = false;
-    for (Camera.Size size : params.getSupportedPreviewSizes()) {
+    List<Camera.Size> sizes = params.getSupportedPreviewSizes();
+    for (Camera.Size size : sizes) {
       if (size.width == desiredWidth && size.height == desiredHeight) {
-        params.setPreviewSize(desiredWidth, desiredHeight);
+        params.setPreviewSize(size.width, size.height);
         isDesiredSizeFound = true;
       }
     }
-
+    if (!isDesiredSizeFound) {
+      for (Camera.Size size : sizes) {
+        if (size.width == desiredWidth && size.height >= desiredHeight) {
+          params.setPreviewSize(size.width, size.height);
+          isDesiredSizeFound = true;
+        }
+      }
+    }
+    if (!isDesiredSizeFound) {
+      for (Camera.Size size : sizes) {
+        if (size.height == desiredHeight && size.width >= desiredWidth) {
+          params.setPreviewSize(size.width, size.height);
+          isDesiredSizeFound = true;
+        }
+      }
+    }
     if (!isDesiredSizeFound) {
       Camera.Size ppsfv = params.getPreferredPreviewSizeForVideo();
       if (ppsfv != null) {
