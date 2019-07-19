@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'package:flutter/services.dart' as prefix0;
-import 'package:rxdart/rxdart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,42 +7,62 @@ enum RtmpLiveViewCameraPosition {
   back
 }
 
+
+class RtmpStatus {
+  final int tex; // for internal purpose only
+  final int width;
+  final int height;
+  final int fps;
+  final bool isStreaming;
+  final bool isStreamingPaused;
+  final RtmpLiveViewCameraPosition cameraPosition;
+  final String rtmpUrl;
+  final String streamName;
+  final int cameraWidth;
+  final int cameraHeight;
+
+  double get aspectRatio => height != 0 ? width / height : 1.0;
+
+  RtmpStatus._({this.tex, this.width, this.height, this.fps, this.isStreaming, this.isStreamingPaused, this.cameraPosition, this.rtmpUrl, this.streamName, this.cameraWidth, this.cameraHeight});
+
+  RtmpStatus updateWith({int tex, int width, int height, int fps, bool isStreaming, bool isStreamingPaused, RtmpLiveViewCameraPosition cameraPosition, String rtmpUrl, String streamName, int cameraWidth, int cameraHeight}) {
+    return RtmpStatus._(
+      tex: tex ?? this.tex,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      fps: fps ?? this.fps,
+      isStreaming: isStreaming ?? this.isStreaming,
+      isStreamingPaused: isStreamingPaused ?? this.isStreamingPaused,
+      cameraPosition: cameraPosition ?? this.cameraPosition,
+      rtmpUrl: rtmpUrl ?? this.rtmpUrl,
+      streamName: streamName ?? this.streamName,
+      cameraWidth: cameraWidth ?? this.cameraWidth,
+      cameraHeight: cameraHeight ?? this.cameraHeight);
+  }
+}
+
 class RtmpLiveViewController {
   static const MethodChannel _channel = const MethodChannel('jp.espresso3389.flutter_rtmp_publisher');
   static bool _fxInitialized = false;
 
-  var _subject = BehaviorSubject<String>();
-  int _tex = -1;
-  int _width;
-  int _height;
-  int _fps;
-  bool _isStreaming = false;
-  RtmpLiveViewCameraPosition _camera = RtmpLiveViewCameraPosition.back;
   StreamSubscription<dynamic> _sub;
+  String _rtmpUrlConnectingTo;
+  String _streamNameConnectingTo;
 
-  bool get isStreaming => _isStreaming;
-
-  int get width => _width;
-  int get height => _height;
-  int get fps => _fps;
-  RtmpLiveViewCameraPosition get camera => _camera;
+  final status = ValueNotifier<RtmpStatus>(null);
 
   void dispose() {
-    _subject?.close();
-    _subject = null;
+    status?.dispose();
     _sub?.cancel();
     _sub = null;
     close();
   }
 
   Future close() async {
-    if (_tex == -1)
+    if (status.value == null)
       return;
-    final tmp = _tex;
-    _tex = -1;
-    _width = null;
-    _height = null;
-    _fps = null;
+    final tmp = status.value.tex;
+    status.value = null;
     await _channel.invokeMethod('close', { 'tex': tmp });
   }
 
@@ -52,55 +70,62 @@ class RtmpLiveViewController {
     if (!_fxInitialized) {
       await _channel.invokeMethod('initFramework');
     }
-    if (_tex == -1)
-      _tex = await _channel.invokeMethod('alloc');
+    if (status.value == null)
+      status.value = RtmpStatus._(tex: await _channel.invokeMethod('alloc'));
   }
 
-  Future initialize({@required int width, @required int height, @required int fps, @required RtmpLiveViewCameraPosition camera, bool restartPreview = true}) async {
+  Future initialize({@required int width, @required int height, @required int fps, @required RtmpLiveViewCameraPosition cameraPosition, bool restartPreview = true}) async {
 
-    if (_tex == -1)
-      await _initTex();
+    await _initTex();
 
-    _width = width;
-    _height = height;
-    _fps = fps;
-    _camera = camera;
+    status.value = status.value.updateWith(
+      width: width, height: height, fps: fps,
+      isStreaming: false, isStreamingPaused: false,
+      cameraPosition: cameraPosition);
 
-    _sub = EventChannel('jp.espresso3389.flutter_rtmp_publisher.instance-$_tex').receiveBroadcastStream().listen((data) {
+    _sub = EventChannel('jp.espresso3389.flutter_rtmp_publisher.instance-${status.value.tex}').receiveBroadcastStream().listen((data) {
       if (data is String) {
         print('RtmpLiveViewController: state changed: $data');
         switch(data) {
           case 'connected':
-            _isStreaming = true;
-            _subject?.sink?.add('connected');
+            status.value = status.value.updateWith(
+              isStreaming: true, isStreamingPaused: false,
+              rtmpUrl: _rtmpUrlConnectingTo, streamName: _streamNameConnectingTo);
             break;
           case 'failedToConnect':
-            _isStreaming = false; // basically we don't need this
-            _subject?.sink?.add('failedToConnect');
+            status.value = status.value.updateWith(isStreaming: false, isStreamingPaused: false);
             break;
           case 'disconnected':
-            _isStreaming = false;
-            _subject?.sink?.add('disconnected');
+            status.value = status.value.updateWith(isStreaming: false, isStreamingPaused: false);
             break;
           case 'paused':
-            _subject?.sink?.add('paused');
+            status.value = status.value.updateWith(isStreamingPaused: true);
             break;
           case 'resumed':
-            _subject?.sink?.add('resumed');
+            status.value = status.value.updateWith(isStreamingPaused: false);
             break;
+          default:
+            print('Unknown status: $data');
+        }
+      } else if (data is Map) {
+        switch (data['name'] as String)
+        {
+          case 'cameraSize':
+            status.value = status.value.updateWith(cameraWidth: data['width'], cameraHeight: data['height']);
+            break;
+          default:
+            print('Unknown data: ${data['name']}');
         }
       }
     });
 
     await _channel.invokeMethod('initCaptureConfig', {
-      'tex': _tex,
-      'width': _width,
-      'height': _height,
-      'fps': _fps,
-      'camera': _camera == RtmpLiveViewCameraPosition.back ? 'back' : 'front'
+      'tex': status.value.tex,
+      'width': status.value.width,
+      'height': status.value.height,
+      'fps': status.value.fps,
+      'camera': status.value.cameraPosition == RtmpLiveViewCameraPosition.back ? 'back' : 'front'
     });
-
-    _subject.sink.add('config');
 
     if (restartPreview)
       await _startPreview();
@@ -109,43 +134,46 @@ class RtmpLiveViewController {
   // FIXME: What's the definition of pause??
   Future pause() async {
     _checkParams();
-    await _channel.invokeMethod('pause', { 'tex': _tex });
+    await _channel.invokeMethod('pause', { 'tex': status.value.tex });
   }
 
   // FIXME: What's the definition of resume??
   Future resume() async {
     _checkParams();
-    await _channel.invokeMethod('resume', { 'tex': _tex });
+    await _channel.invokeMethod('resume', { 'tex': status.value.tex });
   }
 
   // FIXME: Android anyway does not implement this :(
   Future _startPreview() async {
     _checkParams();
-    await _channel.invokeMethod('startPreview', { 'tex': _tex });
+    await _channel.invokeMethod('startPreview', { 'tex': status.value.tex });
   }
 
   // FIXME: Android anyway does not implement this :(
   Future _stopPreview() async {
     _checkParams();
-    await _channel.invokeMethod('stopPreview', { 'tex': _tex });
+    await _channel.invokeMethod('stopPreview', { 'tex': status.value.tex });
   }
 
-  Future connect({@required String rtmpUrl, @required String name}) async {
+  Future connect({@required String rtmpUrl, @required String streamName}) async {
     _checkParams();
+    _rtmpUrlConnectingTo = rtmpUrl;
+    _streamNameConnectingTo = streamName;
     await _channel.invokeMethod('connect', {
-      'tex': _tex,
+      'tex': status.value.tex,
       'url': rtmpUrl,
-      'name': name
+      'name': streamName
     });
   }
 
   Future disconnect() async {
     _checkParams();
-    await _channel.invokeMethod('disconnect', { 'tex': _tex });
+    await _channel.invokeMethod('disconnect', { 'tex': status.value.tex });
   }
 
   void _checkParams() {
-    if (_tex == -1 || _width == null || _height == null || _fps == null)
+    final s = status.value;
+    if (status.value == null || s.width == null || s.height == null || s.fps == null)
       throw Exception('The instance not initialized.');
   }
 
@@ -164,13 +192,19 @@ class RtmpLiveViewController {
     } catch (e) {
     }
   }
+
+  // helper method
+  void _orientationChanged(Orientation orientation) {
+    // NOTE: Don't wait
+    _channel.invokeMethod('orientation', { 'tex': status.value.tex, 'orientation': orientation.index });
+  }
 }
 
 class RtmpLiveView extends StatefulWidget {
   @override
   _RtmpLiveViewState createState() => _RtmpLiveViewState();
 
-  RtmpLiveViewController controller;
+  final RtmpLiveViewController controller;
 
   RtmpLiveView({Key key, @required this.controller}) : super(key: key);
 }
@@ -199,10 +233,14 @@ class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: widget.controller._subject.stream,
-      builder: (context, snapshot) => widget.controller._tex >= 0
-      ? Texture(textureId: widget.controller._tex)
+    return ValueListenableBuilder<RtmpStatus>(
+      valueListenable: widget.controller.status,
+      builder: (context, status, child) => status != null
+      ? OrientationBuilder(
+        builder: (context, orientation) {
+          widget.controller._orientationChanged(orientation);
+          return Texture(textureId: status.tex);
+        })
       : Container()
     );
   }

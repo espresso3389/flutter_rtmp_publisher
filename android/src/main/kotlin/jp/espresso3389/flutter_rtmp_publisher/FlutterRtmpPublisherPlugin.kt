@@ -1,7 +1,10 @@
 package jp.espresso3389.flutter_rtmp_publisher
 
 import android.Manifest
+import android.hardware.Camera
+import android.os.Handler
 import android.util.LongSparseArray
+import android.util.Size
 import com.takusemba.rtmppublisher.CameraMode
 import com.takusemba.rtmppublisher.RtmpPublisher
 import io.flutter.plugin.common.EventChannel
@@ -59,7 +62,7 @@ class FlutterRtmpPublisherPlugin(
             val camera = if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
             val audioBitRate = AUDIO_BITRATE
             val videoBitRate = width * height * fps / BITRATE_MAGIC_DIVIDER
-            rtmpPub.pub.setCaptureConfig(width, height, fps, camera, audioBitRate, videoBitRate)
+            rtmpPub.setCaptureConfig(width, height, fps, camera, audioBitRate, videoBitRate)
             result.success(true)
           }
         }
@@ -109,6 +112,12 @@ class FlutterRtmpPublisherPlugin(
         rtmpPub.pub.stopPublishing()
         result.success(true)
       }
+      call.method == "orientation" -> {
+        val tex = call.argument<Number>("tex")!!.toLong()
+        val rtmpPub = textures[tex]
+        rtmpPub.pub.onOrientationChanged()
+        result.success(true)
+      }
       call.method == "initFramework" -> {
         // nothing for framework initialization
         result.success(true)
@@ -117,23 +126,41 @@ class FlutterRtmpPublisherPlugin(
     }
   }
 
+
+
   class RtmpPublisherWrapper(textureId: Long, registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): RtmpPublisher.RtmpPublisherListener {
     private val eventChannel: EventChannel = EventChannel(registrar.messenger(), "jp.espresso3389.flutter_rtmp_publisher.instance-$textureId")
+    private var eventSink: EventChannel.EventSink? = null
+    private var cameraSize: Size? = null
+    private val flutterSurface: TextureRegistry.SurfaceTextureEntry = flutterTexture
     private val glSurfaceView: FlutterGLSurfaceView = FlutterGLSurfaceView(registrar, flutterTexture.surfaceTexture())
     val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
-      override fun onCameraSizeDetermined(width: Int, height: Int) { glSurfaceView.setSurfaceTextureSize(width, height) }
+      override fun onCameraSizeDetermined(width: Int, height: Int) {
+        cameraSize = Size(width, height)
+        notifyCameraSize()
+      }
     })
-    private var eventSink: EventChannel.EventSink? = null
 
     init {
       eventChannel.setStreamHandler(object: EventChannel.StreamHandler {
         override fun onListen(obj: Any?, eventSink: EventChannel.EventSink?) {
           this@RtmpPublisherWrapper.eventSink = eventSink
+          notifyCameraSize()
         }
         override fun onCancel(obj: Any?) {
           this@RtmpPublisherWrapper.eventSink = null
         }
       })
+    }
+
+    public fun setCaptureConfig(width: Int, height: Int, fps: Int, cameraMode: CameraMode, audioBitRate: Int, videoBitRate: Int) {
+      flutterSurface.surfaceTexture().setDefaultBufferSize(width, height)
+      pub.setCaptureConfig(width, height, fps, cameraMode, audioBitRate, videoBitRate)
+    }
+
+    fun notifyCameraSize() {
+      if (cameraSize != null && eventSink != null)
+        eventSink!!.success(hashMapOf("name" to "cameraSize", "width" to cameraSize!!.width, "height" to cameraSize!!.height))
     }
 
     override fun onConnected() {

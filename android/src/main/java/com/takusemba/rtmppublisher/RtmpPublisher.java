@@ -125,6 +125,10 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     }
   }
 
+  public void onOrientationChanged() {
+    camera.onOrientationChanged();
+  }
+
   public void onResume() {
     if (isCameraOperating)
       return;
@@ -144,7 +148,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     glView.queueEvent(new Runnable() {
       @Override
       public void run() {
-        renderer.setCameraPreviewSize(cameraSize.width, cameraSize.height);
+        renderer.setCameraPreviewSize(width, height);//cameraSize.width, cameraSize.height);
       }
     });
     isCameraOperating = true;

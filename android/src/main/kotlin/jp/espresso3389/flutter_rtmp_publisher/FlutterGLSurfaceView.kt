@@ -87,8 +87,4 @@ class FlutterGLSurfaceView(registrar: PluginRegistry.Registrar, surfaceTexture: 
     egl!!.eglDestroySurface(display, surface)
     this.surface = null
   }
-
-  public fun setSurfaceTextureSize(width: Int, height: Int) {
-    surfaceTexture.setDefaultBufferSize(width, height)
-  }
 }
