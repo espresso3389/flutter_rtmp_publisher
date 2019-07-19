@@ -91,8 +91,15 @@ class FlutterRtmpPublisherPlugin(
       }
       call.method == "connect" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
-        val rtmpUrl = call.argument<String>("url")
+        var rtmpUrl = call.argument<String>("url")
         val name = call.argument<String>("name")
+
+        if (!rtmpUrl!!.endsWith('/')) {
+          rtmpUrl += "/"
+        }
+        // RTMP Publisher accepts one URL that contains stream name
+        rtmpUrl += name
+
         val rtmpPub = textures[tex]
         rtmpPub.pub.startPublishing(rtmpUrl!!)
         result.success(true)
