@@ -59,7 +59,7 @@ class FlutterRtmpPublisherPlugin(
             val width = call.argument<Number>("width")!!.toInt()
             val height = call.argument<Number>("height")!!.toInt()
             val fps = call.argument<Number>("fps")!!.toInt()
-            val camera = CameraMode.FRONT //if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
+            val camera = if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
             val audioBitRate = AUDIO_BITRATE
             val videoBitRate = width * height * fps / BITRATE_MAGIC_DIVIDER
             rtmpPub.setCaptureConfig(width, height, fps, camera, audioBitRate, videoBitRate)
@@ -118,6 +118,13 @@ class FlutterRtmpPublisherPlugin(
         rtmpPub.pub.onOrientationChanged()
         result.success(true)
       }
+      call.method == "setCamera" -> {
+        val tex = call.argument<Number>("tex")!!.toLong()
+        val camera = if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
+        val rtmpPub = textures[tex]
+        rtmpPub.setCameraMode(camera)
+        result.success(true)
+      }
       call.method == "initFramework" -> {
         // nothing for framework initialization
         result.success(true)
@@ -158,9 +165,19 @@ class FlutterRtmpPublisherPlugin(
       pub.setCaptureConfig(width, height, fps, cameraMode, audioBitRate, videoBitRate)
     }
 
+    public fun setCameraMode(mode: CameraMode) {
+      pub.cameraMode = mode
+      notifyCamera()
+    }
+
     fun notifyCameraSize() {
       if (cameraSize != null && eventSink != null)
         eventSink!!.success(hashMapOf("name" to "cameraSize", "width" to cameraSize!!.width, "height" to cameraSize!!.height))
+    }
+
+    fun notifyCamera() {
+      if (cameraSize != null && eventSink != null)
+        eventSink!!.success(hashMapOf("name" to "camera", "camera" to if (pub.cameraMode == CameraMode.BACK) "back" else "front"))
     }
 
     override fun onConnected() {

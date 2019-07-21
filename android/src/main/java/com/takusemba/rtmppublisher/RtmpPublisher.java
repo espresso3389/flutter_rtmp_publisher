@@ -141,6 +141,18 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     });
   }
 
+  public void swapCamera() {
+    camera.swap();
+  }
+
+  public void setCameraMode(CameraMode mode) {
+    camera.setCameraMode(mode);
+  }
+
+  public CameraMode getCameraMode() {
+    return camera.getCameraMode();
+  }
+
   public void onResume() {
     if (isCameraOperating)
       return;

@@ -113,6 +113,9 @@ class RtmpLiveViewController {
           case 'cameraSize':
             status.value = status.value.updateWith(cameraWidth: data['width'], cameraHeight: data['height']);
             break;
+          case 'camera':
+            status.value = status.value.updateWith(cameraPosition: data['camera'] == 'back' ? RtmpLiveViewCameraPosition.back : RtmpLiveViewCameraPosition.front);
+            break;
           default:
             print('Unknown data: ${data['name']}');
         }
@@ -153,6 +156,16 @@ class RtmpLiveViewController {
   Future _stopPreview() async {
     _checkParams();
     await _channel.invokeMethod('stopPreview', { 'tex': status.value.tex });
+  }
+
+  Future setCamera(RtmpLiveViewCameraPosition cameraPosition) async {
+    _checkParams();
+    await _channel.invokeMethod('setCamera', { 'tex': status.value.tex, 'camera': cameraPosition == RtmpLiveViewCameraPosition.back ? 'back' : 'front' });
+  }
+
+  Future swapCamera() async {
+    _checkParams();
+    await setCamera(status.value.cameraPosition == RtmpLiveViewCameraPosition.back ? RtmpLiveViewCameraPosition.front : RtmpLiveViewCameraPosition.back);
   }
 
   Future connect({@required String rtmpUrl, @required String streamName}) async {

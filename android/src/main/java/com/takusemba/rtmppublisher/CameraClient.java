@@ -41,9 +41,7 @@ class CameraClient {
       throw new IllegalStateException("camera not found");
     }
 
-    Camera.Parameters params = camera.getParameters();
-    setParameters(params);
-    return params;
+    return setParameters();
   }
 
   void setCameraMode(CameraMode newMode) {
@@ -56,6 +54,10 @@ class CameraClient {
       if (surfaceTexture != null)
         startPreview(surfaceTexture);
     }
+  }
+
+  CameraMode getCameraMode() {
+    return mode;
   }
 
   void swap() {
@@ -89,6 +91,7 @@ class CameraClient {
     for (int i = 0; i < numCameras; i++) {
       Camera.getCameraInfo(i, info);
       if (info.facing == mode.getId()) {
+        close();
         camera = Camera.open(i);
         cameraOrientation = info.orientation;
         //setRotation();
@@ -98,7 +101,8 @@ class CameraClient {
     }
   }
 
-  private void setParameters(Camera.Parameters params) {
+  private Camera.Parameters setParameters() {
+    Camera.Parameters params = camera.getParameters();
     boolean isDesiredSizeFound = false;
     List<Camera.Size> sizes = params.getSupportedPreviewSizes();
     for (Camera.Size size : sizes) {
@@ -144,6 +148,7 @@ class CameraClient {
     cameraSize = params.getPreviewSize();
 
     setRotation();
+    return params;
   }
 
   public void onOrientationChanged() {
