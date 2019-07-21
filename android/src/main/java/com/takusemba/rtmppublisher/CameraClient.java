@@ -27,6 +27,7 @@ class CameraClient {
 
   int getResultWidth() { return cameraWhFlipped ? resultHeight : resultWidth; }
   int getResultHeight() { return cameraWhFlipped ? resultWidth : resultHeight; }
+  boolean isCameraWidthHeightSwapped() { return cameraWhFlipped; }
 
   CameraClient(Context context, CameraMode mode, int requestedWidth, int requestedHeight) {
     this.context = context;

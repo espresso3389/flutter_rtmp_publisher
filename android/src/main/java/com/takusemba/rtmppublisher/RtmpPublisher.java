@@ -8,6 +8,7 @@ import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import io.flutter.plugin.common.PluginRegistry;
@@ -23,6 +24,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   private CameraCallback cameraCallback;
   private RtmpPublisherListener listener;
   private int lastRotation = -1;
+  private SurfaceTexture surfaceTexture;
 
   public static abstract class CameraCallback {
     public abstract void onCameraSizeDetermined(int width, int height);
@@ -36,7 +38,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     this.registrar = registrar;
     this.glView = glView;
     // FIXME: Camera preview size fixed here :(
-    this.camera = new CameraClient(registrar.context(), mode, 640, 480);
+    this.camera = new CameraClient(registrar.context(), mode, 1920, 1080);
     this.cameraCallback = cameraCallback;
     this.streamer = new Streamer();
     this.listener = listener;
@@ -158,20 +160,35 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
   public void onOrientationChanged(int orientation) {
     camera.onOrientationChanged(orientation);
+    resizeSurface();
     callCameraCallback();
     setCameraPreviewSize();
   }
 
   private void callCameraCallback() {
-    cameraCallback.onCameraSizeDetermined(camera.getResultWidth(), camera.getResultHeight());
+    final int width = camera.getResultWidth();
+    final int height = camera.getResultHeight();
+    if (surfaceTexture != null)
+      surfaceTexture.setDefaultBufferSize(width, height);
+    cameraCallback.onCameraSizeDetermined(width, height);
   }
+
   private void setCameraPreviewSize() {
+    final boolean swapped = camera.isCameraWidthHeightSwapped();
     glView.queueEvent(new Runnable() {
       @Override
       public void run() {
-        renderer.setCameraPreviewSize(camera.getResultWidth(), camera.getResultHeight());
+        renderer.setCameraPreviewSize(width, height, swapped);
       }
     });
+  }
+
+  private void resizeSurface() {
+    if (!glView.isAttachedToWindow()) {
+      registrar.activity().addContentView(glView, new LinearLayout.LayoutParams(camera.getResultWidth(), camera.getResultHeight()));
+    } else {
+      glView.setLayoutParams(new FrameLayout.LayoutParams(camera.getResultWidth(), camera.getResultHeight()));
+    }
   }
 
   public void swapCamera() {
@@ -191,14 +208,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
       return;
     camera.setCameraMode(cameraMode);
     Camera.Parameters params = camera.open();
-    // FIXME:
-    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(camera.getResultWidth(), camera.getResultHeight());
-    if (!glView.isAttachedToWindow()) {
-      registrar.activity().addContentView(glView, lp);
-    } else {
-      glView.setLayoutParams(lp);
-    }
-
+    resizeSurface();
     callCameraCallback();
 
     glView.onResume();
@@ -208,6 +218,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
   public void onPause() {
     if (isCameraOperating) {
+      surfaceTexture = null;
       if (camera != null) {
         camera.close();
       }
@@ -278,6 +289,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     surfaceTexture.setDefaultBufferSize(camera.getResultWidth(), camera.getResultHeight());
     surfaceTexture.setOnFrameAvailableListener(this);
     camera.startPreview(surfaceTexture);
+    this.surfaceTexture = surfaceTexture;
   }
   @Override
   public void onFrameDrawn(int textureId, float[] transform, long timestamp) {

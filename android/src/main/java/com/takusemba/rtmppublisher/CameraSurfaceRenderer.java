@@ -24,6 +24,9 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
   private boolean isSurfaceCreated = false;
   private int texWidth = -1;
   private int texHeight = -1;
+  private boolean texWidthHeightSwapped;
+  private int surfaceWidth = 1;
+  private int surfaceHeight = 1;
 
   private List<OnRendererStateChangedListener> listeners = new ArrayList<>();
 
@@ -51,12 +54,18 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
     isSurfaceCreated = false;
   }
 
-  void setCameraPreviewSize(int width, int height) {
-    if (width == texWidth && height == texHeight)
+  /**
+   * Actual preview size on the screen
+   * @param width Actual preview width in dp.
+   * @param height Actual preview height in dp.
+   * @param isCameraWidthHeightSwapped
+   */
+  void setCameraPreviewSize(int width, int height, boolean isCameraWidthHeightSwapped) {
+    if (width == texWidth && height == texHeight && isCameraWidthHeightSwapped == texWidthHeightSwapped)
       return;
-    Log.i("CameraSurfaceRenderer", String.format("setCameraPreviewSize: %d x %d", width, height));
     texWidth = width;
     texHeight = height;
+    texWidthHeightSwapped = isCameraWidthHeightSwapped;
     isSizeChanged = true;
   }
 
@@ -80,6 +89,8 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
   @Override
   public void onSurfaceChanged(GL10 unused, int width, int height) {
     Log.i("CameraSurfaceRenderer", String.format("onSurfaceChanged: %d x %d", width, height));
+    surfaceWidth = width;
+    surfaceHeight = height;
   }
 
   @Override
@@ -98,8 +109,16 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
       isSizeChanged = false;
     }
 
-    // Draw the video frame.
+    // calculating transform
     surfaceTexture.getTransformMatrix(transform);
+    final int xInd = texWidthHeightSwapped ? 1 : 0;
+    final int yInd = texWidthHeightSwapped ? 4 : 5;
+    if (surfaceWidth / texWidth < surfaceHeight / texHeight) {
+      transform[yInd]  *= (float)surfaceWidth * texHeight / texWidth / surfaceHeight;
+    } else {
+      transform[xInd] *= (float)surfaceHeight * texWidth / texHeight / surfaceWidth;
+    }
+
     fullScreen.drawFrame(textureId, transform);
 
     if (listeners.size() > 0) {
