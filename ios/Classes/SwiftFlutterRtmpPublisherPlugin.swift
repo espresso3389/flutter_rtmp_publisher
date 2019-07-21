@@ -73,6 +73,12 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
         try getHaishin(call).stopPreview()
         result(nil)
         return
+      } else if call.method == "setCamera" {
+        guard let args = call.arguments as! NSDictionary? else { result(nil); return }
+        guard let camera = args["camera"] as! NSString? else { result(nil); return }
+        try getHaishin(call).setCamera(camera: camera as String)
+        result(nil)
+        return
       } else if call.method == "orientation" {
         try getHaishin(call).onOrientation()
         result(nil)
@@ -237,14 +243,20 @@ class Haishin : NSObject {
     // Screen capture
     //rtmpStream.attachScreen(ScreenCaptureSession(shared: UIApplication.shared))
 
+    setCamera(camera: camera)
+
+    // emulate Android's cameraSize behavior
+    let cameraSize:[String: Any?] = ["name": "cameraSize", "width": width, "height": height]
+    eventSink?(cameraSize)
+  }
+  
+  public func setCamera(camera: String) {
     let cameraPos = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
     rtmpStream!.attachCamera(DeviceUtil.device(withPosition: cameraPos)) { error in
       print(error)
     }
-    
-    // emulate Android's cameraSize behavior
-    let cameraSize:[String: Any?] = ["name": "cameraSize", "width": width, "height": height]
-    eventSink?(cameraSize)
+    let camera1:[String: Any?] = ["name": "camera", "camera": camera]
+    eventSink?(camera1)
   }
 
   public func stopPreview() {
