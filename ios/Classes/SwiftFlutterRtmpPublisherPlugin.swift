@@ -16,11 +16,12 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
 
   let registrar: FlutterPluginRegistrar
   var instances: [Int64:Haishin] = [:]
+  var lastOrientation: UIDeviceOrientation? = nil
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     do {
       if call.method == "initFramework" {
-        try Haishin.initAVFoundation()
+        try initFramework()
         result(nil)
         return
       } else if call.method == "alloc" {
@@ -96,6 +97,21 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
     } catch {
       print("SwiftFlutterRtmpPublisherPlugin.handle: \(error)")
       result(nil)
+    }
+  }
+  
+  func initFramework() throws {
+    try Haishin.initAVFoundation()
+    NotificationCenter.default.addObserver(self, selector: #selector(onRotation), name: UIDevice.orientationDidChangeNotification, object: nil)
+  }
+  
+  @objc func onRotation() {
+    let cur = UIDevice.current.orientation
+    if lastOrientation != cur {
+      lastOrientation = cur
+      for tex in instances.keys {
+        instances[tex]?.onOrientation()
+      }
     }
   }
 
