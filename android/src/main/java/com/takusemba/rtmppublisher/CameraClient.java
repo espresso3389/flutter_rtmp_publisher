@@ -3,6 +3,7 @@ package com.takusemba.rtmppublisher;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.util.Log;
 import android.view.Surface;
 import android.view.WindowManager;
 
@@ -18,6 +19,7 @@ class CameraClient {
   private int cameraOrientation;
   private Camera.Size cameraSize;
   private boolean cameraWhFlipped;
+  private boolean cameraOpened;
 
   private int desiredWidth;
   private int desiredHeight;
@@ -30,6 +32,7 @@ class CameraClient {
     this.mode = mode;
     this.desiredWidth = desiredWidth;
     this.desiredHeight = desiredHeight;
+    this.cameraOpened = false;
   }
 
   Camera.Parameters open() {
@@ -43,15 +46,21 @@ class CameraClient {
     return params;
   }
 
+  void setCameraMode(CameraMode newMode) {
+    mode = newMode;
+    if (cameraOpened) {
+      initCamera();
+      if (camera == null) {
+        throw new IllegalStateException("camera not found");
+      }
+      if (surfaceTexture != null)
+        startPreview(surfaceTexture);
+    }
+  }
+
   void swap() {
     close();
-
-    mode = mode.swap();
-    initCamera();
-    if (camera == null) {
-      throw new IllegalStateException("camera not found");
-    }
-    startPreview(surfaceTexture);
+    setCameraMode(mode.swap());
   }
 
   void startPreview(SurfaceTexture surfaceTexture) {
@@ -70,6 +79,7 @@ class CameraClient {
       camera.release();
       camera = null;
     }
+    cameraOpened = false;
   }
 
   private void initCamera() {
@@ -81,7 +91,8 @@ class CameraClient {
       if (info.facing == mode.getId()) {
         camera = Camera.open(i);
         cameraOrientation = info.orientation;
-        setRotation();
+        //setRotation();
+        cameraOpened = true;
         break;
       }
     }
@@ -119,14 +130,18 @@ class CameraClient {
       }
     }
 
-    params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
+    if (!isDesiredSizeFound) {
+      Log.i("CameraClient", String.format("Desired size not found: %d x %d", desiredWidth, desiredHeight));
+    }
+
+    List<String> focusModes = params.getSupportedFocusModes();
+    if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
+      params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
+    }
     params.setRecordingHint(true);
 
     camera.setParameters(params);
     cameraSize = params.getPreviewSize();
-
-    int[] fpsRange = new int[2];
-    params.getPreviewFpsRange(fpsRange);
 
     setRotation();
   }

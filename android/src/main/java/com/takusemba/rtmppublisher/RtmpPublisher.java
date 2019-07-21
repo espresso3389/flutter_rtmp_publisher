@@ -144,6 +144,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   public void onResume() {
     if (isCameraOperating)
       return;
+    camera.setCameraMode(cameraMode);
     Camera.Parameters params = camera.open();
     // FIXME:
     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(camera.getResultWidth(), camera.getResultHeight());
