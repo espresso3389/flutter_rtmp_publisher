@@ -26,7 +26,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future initAsync() async {
-    await controller.initialize(width: 1280, height: 720, fps: 30, cameraPosition: RtmpLiveViewCameraPosition.back);
+    await controller.initialize(width: 640, height: 480, fps: 30, cameraPosition: RtmpLiveViewCameraPosition.back);
   }
 
   @override

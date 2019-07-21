@@ -17,21 +17,22 @@ class CameraClient {
   private CameraMode mode;
   private SurfaceTexture surfaceTexture;
   private int cameraOrientation;
-  private Camera.Size cameraSize;
   private boolean cameraWhFlipped;
   private boolean cameraOpened;
 
-  private int desiredWidth;
-  private int desiredHeight;
+  private int requestedWidth;
+  private int requestedHeight;
+  private int resultWidth;
+  private int resultHeight;
 
-  int getResultWidth() { return cameraSize.width; }
-  int getResultHeight() { return cameraSize.height; }
+  int getResultWidth() { return cameraWhFlipped ? resultHeight : resultWidth; }
+  int getResultHeight() { return cameraWhFlipped ? resultWidth : resultHeight; }
 
-  CameraClient(Context context, CameraMode mode, int desiredWidth, int desiredHeight) {
+  CameraClient(Context context, CameraMode mode, int requestedWidth, int requestedHeight) {
     this.context = context;
     this.mode = mode;
-    this.desiredWidth = desiredWidth;
-    this.desiredHeight = desiredHeight;
+    this.requestedWidth = requestedWidth;
+    this.requestedHeight = requestedHeight;
     this.cameraOpened = false;
   }
 
@@ -41,7 +42,7 @@ class CameraClient {
       throw new IllegalStateException("camera not found");
     }
 
-    return setParameters();
+    return determineCameraDimensions();
   }
 
   void setCameraMode(CameraMode newMode) {
@@ -101,19 +102,19 @@ class CameraClient {
     }
   }
 
-  private Camera.Parameters setParameters() {
+  private Camera.Parameters determineCameraDimensions() {
     Camera.Parameters params = camera.getParameters();
     boolean isDesiredSizeFound = false;
     List<Camera.Size> sizes = params.getSupportedPreviewSizes();
     for (Camera.Size size : sizes) {
-      if (size.width == desiredWidth && size.height == desiredHeight) {
+      if (size.width == requestedWidth && size.height == requestedHeight) {
         params.setPreviewSize(size.width, size.height);
         isDesiredSizeFound = true;
       }
     }
     if (!isDesiredSizeFound) {
       for (Camera.Size size : sizes) {
-        if (size.width == desiredWidth && size.height >= desiredHeight) {
+        if (size.width == requestedWidth && size.height >= requestedHeight) {
           params.setPreviewSize(size.width, size.height);
           isDesiredSizeFound = true;
         }
@@ -121,7 +122,7 @@ class CameraClient {
     }
     if (!isDesiredSizeFound) {
       for (Camera.Size size : sizes) {
-        if (size.height == desiredHeight && size.width >= desiredWidth) {
+        if (size.height == requestedHeight && size.width >= requestedWidth) {
           params.setPreviewSize(size.width, size.height);
           isDesiredSizeFound = true;
         }
@@ -135,7 +136,7 @@ class CameraClient {
     }
 
     if (!isDesiredSizeFound) {
-      Log.i("CameraClient", String.format("Desired size not found: %d x %d", desiredWidth, desiredHeight));
+      Log.i("CameraClient", String.format("Desired size not found: %d x %d", requestedWidth, requestedHeight));
     }
 
     List<String> focusModes = params.getSupportedFocusModes();
@@ -145,19 +146,26 @@ class CameraClient {
     params.setRecordingHint(true);
 
     camera.setParameters(params);
-    cameraSize = params.getPreviewSize();
+    Camera.Size result = params.getPreviewSize();
+    resultWidth = result.width;
+    resultHeight = result.height;
 
     setRotation();
     return params;
   }
 
-  public void onOrientationChanged() {
-    setRotation();
+  public void onOrientationChanged(int orientation) {
+    if (camera != null)
+      setRotation();
+  }
+
+  private int getDeviceRotation() {
+    WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+    return windowManager.getDefaultDisplay().getRotation();
   }
 
   private void setRotation() {
-    WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-    int rotation = windowManager.getDefaultDisplay().getRotation();
+    int rotation = getDeviceRotation();
     int degrees = 0;
     switch (rotation) {
       case Surface.ROTATION_0:

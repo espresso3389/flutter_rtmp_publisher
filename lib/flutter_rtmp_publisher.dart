@@ -48,6 +48,7 @@ class RtmpLiveViewController {
   StreamSubscription<dynamic> _sub;
   String _rtmpUrlConnectingTo;
   String _streamNameConnectingTo;
+  Orientation _lastOrientation;
 
   final status = ValueNotifier<RtmpStatus>(null);
 
@@ -208,7 +209,9 @@ class RtmpLiveViewController {
 
   // helper method
   void _orientationChanged(Orientation orientation) {
-    // NOTE: Don't wait
+    if (_lastOrientation == orientation)
+      return;
+    _lastOrientation = orientation;
     _channel.invokeMethod('orientation', { 'tex': status.value.tex, 'orientation': orientation.index });
   }
 }
@@ -249,11 +252,7 @@ class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver
     return ValueListenableBuilder<RtmpStatus>(
       valueListenable: widget.controller.status,
       builder: (context, status, child) => status != null
-      ? OrientationBuilder(
-        builder: (context, orientation) {
-          widget.controller._orientationChanged(orientation);
-          return Texture(textureId: status.tex);
-        })
+      ? Texture(textureId: status.tex)
       : Container()
     );
   }

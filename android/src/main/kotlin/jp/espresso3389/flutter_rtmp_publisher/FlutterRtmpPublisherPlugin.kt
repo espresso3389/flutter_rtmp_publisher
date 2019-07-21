@@ -3,6 +3,7 @@ package jp.espresso3389.flutter_rtmp_publisher
 import android.Manifest
 import android.hardware.Camera
 import android.os.Handler
+import android.util.Log
 import android.util.LongSparseArray
 import android.util.Size
 import com.takusemba.rtmppublisher.CameraMode
@@ -112,12 +113,6 @@ class FlutterRtmpPublisherPlugin(
         rtmpPub.pub.stopPublishing()
         result.success(true)
       }
-      call.method == "orientation" -> {
-        val tex = call.argument<Number>("tex")!!.toLong()
-        val rtmpPub = textures[tex]
-        rtmpPub.pub.onOrientationChanged()
-        result.success(true)
-      }
       call.method == "setCamera" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val camera = if (call.argument<String>("camera") == "back") CameraMode.BACK else CameraMode.FRONT
@@ -133,8 +128,6 @@ class FlutterRtmpPublisherPlugin(
     }
   }
 
-
-
   class RtmpPublisherWrapper(textureId: Long, registrar: Registrar, flutterTexture: TextureRegistry.SurfaceTextureEntry): RtmpPublisher.RtmpPublisherListener {
     private val eventChannel: EventChannel = EventChannel(registrar.messenger(), "jp.espresso3389.flutter_rtmp_publisher.instance-$textureId")
     private var eventSink: EventChannel.EventSink? = null
@@ -144,6 +137,7 @@ class FlutterRtmpPublisherPlugin(
     val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
       override fun onCameraSizeDetermined(width: Int, height: Int) {
         cameraSize = Size(width, height)
+        Log.i("RtmpPublisherWrapper", String.format("onCameraSizeDetermined: %d, %d", width, height))
         notifyCameraSize()
       }
     })

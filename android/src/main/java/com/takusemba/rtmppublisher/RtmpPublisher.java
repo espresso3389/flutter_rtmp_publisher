@@ -1,17 +1,20 @@
 package com.takusemba.rtmppublisher;
 
+import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
+import android.os.Handler;
+import android.view.WindowManager;
 import android.widget.LinearLayout;
 
 import io.flutter.plugin.common.PluginRegistry;
 
 public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, Muxer.StatusListener,
   CameraSurfaceRenderer.OnRendererStateChangedListener {
-
+  private Handler handler = new Handler();
   private PluginRegistry.Registrar registrar;
   private GLSurfaceView glView;
   private CameraSurfaceRenderer renderer;
@@ -19,6 +22,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   private CameraClient camera;
   private CameraCallback cameraCallback;
   private RtmpPublisherListener listener;
+  private int lastRotation = -1;
 
   public static abstract class CameraCallback {
     public abstract void onCameraSizeDetermined(int width, int height);
@@ -45,6 +49,17 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
     glView.setRenderer(renderer);
     glView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+
+    scheduleCheckOrientation();
+  }
+
+  void scheduleCheckOrientation() {
+    handler.postDelayed(new Runnable() {
+      @Override
+      public void run() {
+        checkOrientation();
+      }
+    }, 500);
   }
 
   public void release() {
@@ -124,8 +139,25 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     }
   }
 
-  public void onOrientationChanged() {
-    camera.onOrientationChanged();
+  private void checkOrientation() {
+    if (renderer != null && camera != null) {
+      int rotation = getDeviceRotation();
+      if (rotation != lastRotation) {
+        lastRotation = rotation;
+        onOrientationChanged(rotation);
+      }
+    }
+
+    scheduleCheckOrientation();
+  }
+
+  private int getDeviceRotation() {
+    WindowManager windowManager = (WindowManager) registrar.activeContext().getSystemService(Context.WINDOW_SERVICE);
+    return windowManager.getDefaultDisplay().getRotation();
+  }
+
+  public void onOrientationChanged(int orientation) {
+    camera.onOrientationChanged(orientation);
     callCameraCallback();
     setCameraPreviewSize();
   }
