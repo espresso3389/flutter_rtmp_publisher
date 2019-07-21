@@ -55,6 +55,7 @@ class CameraClient {
       }
       if (surfaceTexture != null)
         startPreview(surfaceTexture);
+      setRotation();
     }
   }
 
@@ -96,7 +97,6 @@ class CameraClient {
         close();
         camera = Camera.open(i);
         cameraOrientation = info.orientation;
-        //setRotation();
         cameraOpened = true;
         break;
       }

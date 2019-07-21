@@ -193,10 +193,12 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
   public void swapCamera() {
     camera.swap();
+    doSetup();
   }
 
   public void setCameraMode(CameraMode mode) {
     camera.setCameraMode(mode);
+    doSetup();
   }
 
   public CameraMode getCameraMode() {
@@ -207,7 +209,13 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     if (isCameraOperating)
       return;
     camera.setCameraMode(cameraMode);
-    Camera.Parameters params = camera.open();
+    camera.open();
+    doSetup();
+  }
+
+  private void doSetup() {
+    if (!isCameraOperating)
+      return;
     resizeSurface();
     callCameraCallback();
 
