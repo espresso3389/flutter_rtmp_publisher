@@ -21,7 +21,7 @@ class RtmpStatus {
   final int cameraWidth;
   final int cameraHeight;
 
-  double get aspectRatio => height != 0 ? width / height : 1.0;
+  double get aspectRatio => height != 0 ? cameraWidth / cameraHeight : 1.0;
 
   RtmpStatus._({this.tex, this.width, this.height, this.fps, this.isStreaming, this.isStreamingPaused, this.cameraPosition, this.rtmpUrl, this.streamName, this.cameraWidth, this.cameraHeight});
 
@@ -113,6 +113,7 @@ class RtmpLiveViewController {
         {
           case 'cameraSize':
             status.value = status.value.updateWith(cameraWidth: data['width'], cameraHeight: data['height']);
+            print('cameraSize: ${status.value?.cameraWidth} x ${status.value?.cameraHeight}');
             break;
           case 'camera':
             status.value = status.value.updateWith(cameraPosition: data['camera'] == 'back' ? RtmpLiveViewCameraPosition.back : RtmpLiveViewCameraPosition.front);
@@ -205,14 +206,6 @@ class RtmpLiveViewController {
       await _channel.invokeMethod('resumed');
     } catch (e) {
     }
-  }
-
-  // helper method
-  void _orientationChanged(Orientation orientation) {
-    if (_lastOrientation == orientation)
-      return;
-    _lastOrientation = orientation;
-    _channel.invokeMethod('orientation', { 'tex': status.value.tex, 'orientation': orientation.index });
   }
 }
 
