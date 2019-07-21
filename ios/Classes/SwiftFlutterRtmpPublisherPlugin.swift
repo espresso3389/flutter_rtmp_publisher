@@ -80,10 +80,6 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
         try getHaishin(call).setCamera(camera: camera as String)
         result(nil)
         return
-      } else if call.method == "orientation" {
-        try getHaishin(call).onOrientation()
-        result(nil)
-        return
       } else if call.method == "close" {
         let inst = try getHaishin(call)
         inst.close()
