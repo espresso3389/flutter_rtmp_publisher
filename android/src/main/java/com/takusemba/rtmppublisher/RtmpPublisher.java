@@ -31,7 +31,8 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
                        CameraCallback cameraCallback) {
     this.registrar = registrar;
     this.glView = glView;
-    this.camera = new CameraClient(registrar.context(), mode, 1280, 720);
+    // FIXME: Camera preview size fixed here :(
+    this.camera = new CameraClient(registrar.context(), mode, 640, 480);
     this.cameraCallback = cameraCallback;
     this.streamer = new Streamer();
     this.listener = listener;
