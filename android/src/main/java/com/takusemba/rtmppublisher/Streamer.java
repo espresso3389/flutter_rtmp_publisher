@@ -1,6 +1,7 @@
 package com.takusemba.rtmppublisher;
 
 import android.opengl.EGLContext;
+import android.util.Log;
 
 class Streamer
   implements VideoHandler.OnVideoEncoderStateListener, AudioHandler.OnAudioEncoderStateListener {
@@ -16,11 +17,13 @@ class Streamer
   }
 
   void open(String url, int width, int height) {
+    Log.i("Streamer", String.format("open: %d x %d", width, height));
     muxer.open(url, width, height);
   }
 
   void startStreaming(EGLContext context, int width, int height, int audioBitrate,
                       int videoBitrate) {
+    Log.i("Streamer", String.format("startStreaming: %d x %d", width, height));
     paused = false;
     if (muxer.isConnected()) {
       long startStreamingAt = System.currentTimeMillis();

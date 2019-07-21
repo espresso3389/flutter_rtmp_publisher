@@ -90,7 +90,6 @@ class VideoEncoder implements Encoder {
 
   class EncoderThread extends Thread {
     public void run() {
-      // keep running... so use a different thread.
       while (isEncoding) {
         if (encoder == null) return;
         int inputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);

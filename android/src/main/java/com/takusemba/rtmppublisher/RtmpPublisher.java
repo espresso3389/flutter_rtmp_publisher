@@ -1,6 +1,5 @@
 package com.takusemba.rtmppublisher;
 
-import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.opengl.EGL14;
@@ -18,7 +17,6 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   private CameraSurfaceRenderer renderer;
   private Streamer streamer;
   private CameraClient camera;
-  private Camera.Size cameraSize;
   private CameraCallback cameraCallback;
   private RtmpPublisherListener listener;
 
@@ -33,7 +31,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
                        CameraCallback cameraCallback) {
     this.registrar = registrar;
     this.glView = glView;
-    this.camera = new CameraClient(registrar.context(), mode, 640, 480);
+    this.camera = new CameraClient(registrar.context(), mode, 1280, 720);
     this.cameraCallback = cameraCallback;
     this.streamer = new Streamer();
     this.listener = listener;
@@ -127,30 +125,38 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
   public void onOrientationChanged() {
     camera.onOrientationChanged();
+    callCameraCallback();
+    setCameraPreviewSize();
+  }
+
+  private void callCameraCallback() {
+    cameraCallback.onCameraSizeDetermined(camera.getResultWidth(), camera.getResultHeight());
+  }
+  private void setCameraPreviewSize() {
+    glView.queueEvent(new Runnable() {
+      @Override
+      public void run() {
+        renderer.setCameraPreviewSize(camera.getResultWidth(), camera.getResultHeight());
+      }
+    });
   }
 
   public void onResume() {
     if (isCameraOperating)
       return;
     Camera.Parameters params = camera.open();
-    cameraSize = params.getPreviewSize();
-
     // FIXME:
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(camera.getResultWidth(), camera.getResultHeight());
     if (!glView.isAttachedToWindow()) {
-      registrar.activity().addContentView(glView, new LinearLayout.LayoutParams(cameraSize.width, cameraSize.height));
+      registrar.activity().addContentView(glView, lp);
     } else {
-      glView.setLayoutParams(new LinearLayout.LayoutParams(cameraSize.width, cameraSize.height));
+      glView.setLayoutParams(lp);
     }
 
-    cameraCallback.onCameraSizeDetermined(cameraSize.width, cameraSize.height);
+    callCameraCallback();
 
     glView.onResume();
-    glView.queueEvent(new Runnable() {
-      @Override
-      public void run() {
-        renderer.setCameraPreviewSize(width, height);//cameraSize.width, cameraSize.height);
-      }
-    });
+    setCameraPreviewSize();
     isCameraOperating = true;
   }
 
@@ -223,7 +229,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   @Override
   public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
     onResume();
-    surfaceTexture.setDefaultBufferSize(cameraSize.width, cameraSize.height);
+    surfaceTexture.setDefaultBufferSize(camera.getResultWidth(), camera.getResultHeight());
     surfaceTexture.setOnFrameAvailableListener(this);
     camera.startPreview(surfaceTexture);
   }

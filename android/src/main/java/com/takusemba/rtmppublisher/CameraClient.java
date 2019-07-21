@@ -3,17 +3,11 @@ package com.takusemba.rtmppublisher;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
-import android.hardware.SensorManager;
-import android.util.Log;
-import android.view.Display;
-import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.WindowManager;
 
 import java.io.IOException;
 import java.util.List;
-
-import static android.content.Context.WINDOW_SERVICE;
 
 class CameraClient {
 
@@ -23,11 +17,13 @@ class CameraClient {
   private SurfaceTexture surfaceTexture;
   private int cameraOrientation;
   private Camera.Size cameraSize;
+  private boolean cameraWhFlipped;
 
-  private int desiredHeight;
   private int desiredWidth;
+  private int desiredHeight;
 
-  public int getCameraOrientation() { return cameraOrientation; }
+  int getResultWidth() { return cameraSize.width; }
+  int getResultHeight() { return cameraSize.height; }
 
   CameraClient(Context context, CameraMode mode, int desiredWidth, int desiredHeight) {
     this.context = context;
@@ -127,6 +123,7 @@ class CameraClient {
     params.setRecordingHint(true);
 
     camera.setParameters(params);
+    cameraSize = params.getPreviewSize();
 
     int[] fpsRange = new int[2];
     params.getPreviewFpsRange(fpsRange);
@@ -137,7 +134,6 @@ class CameraClient {
   public void onOrientationChanged() {
     setRotation();
   }
-
 
   private void setRotation() {
     WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
@@ -164,6 +160,7 @@ class CameraClient {
     } else {
       degrees = (cameraOrientation - degrees + 360) % 360;
     }
+    cameraWhFlipped = degrees == 90 || degrees == 270;
     camera.setDisplayOrientation(degrees);
   }
 }
