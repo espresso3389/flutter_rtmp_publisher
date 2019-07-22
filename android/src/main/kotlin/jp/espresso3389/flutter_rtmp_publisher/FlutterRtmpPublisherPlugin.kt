@@ -133,8 +133,7 @@ class FlutterRtmpPublisherPlugin(
     private var eventSink: EventChannel.EventSink? = null
     private var cameraSize: Size? = null
     private val flutterSurface: TextureRegistry.SurfaceTextureEntry = flutterTexture
-    private val glSurfaceView: FlutterGLSurfaceView = FlutterGLSurfaceView(registrar, flutterTexture.surfaceTexture())
-    val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
+    val pub: RtmpPublisher = RtmpPublisher(registrar, flutterTexture.surfaceTexture(), CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
       override fun onCameraSizeDetermined(width: Int, height: Int) {
         cameraSize = Size(width, height)
         Log.i("RtmpPublisherWrapper", String.format("onCameraSizeDetermined: %d, %d", width, height))

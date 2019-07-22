@@ -2,7 +2,6 @@ package com.takusemba.rtmppublisher;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
-import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -17,6 +16,7 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 class CameraClient {
@@ -35,90 +35,90 @@ class CameraClient {
   private int requestedHeight;
   private Size resultSize;
   private float[] rotationMatrix;
+  private OnCameraReady onCameraReady;
 
   boolean isCameraWidthHeightSwapped() { return rotationMatrix != null && rotationMatrix[0] == 0; }
-  int getResultWidth() { return isCameraWidthHeightSwapped() ? resultSize.getHeight() : resultSize.getWidth(); }
-  int getResultHeight() { return isCameraWidthHeightSwapped() ? resultSize.getWidth() : resultSize.getHeight(); }
 
-  CameraClient(Context context) {
+  Size getResultSize() { return isCameraWidthHeightSwapped() ? new Size(resultSize.getHeight(), resultSize.getWidth()) : resultSize; }
+
+  public interface OnCameraReady {
+    void onCameraReady(CameraClient camera);
+  }
+
+
+  CameraClient(Context context, OnCameraReady onCameraReady) {
     this.context = context;
     this.cameraManager = (CameraManager)context.getSystemService(Context.CAMERA_SERVICE);
     this.mode = CameraMode.BACK;
     this.requestedWidth = 640;
     this.requestedHeight = 480;
     this.cameraOpened = false;
+    this.onCameraReady = onCameraReady;
   }
 
-  void open(CameraMode newMode, int width, int height) {
-    initCamera(newMode);
-    if (camera == null) {
-      throw new IllegalStateException("camera not found");
+  void open(final CameraMode newMode, final int width, final int height) {
+    final int facing = newMode == CameraMode.BACK ? CameraCharacteristics.LENS_FACING_BACK : CameraCharacteristics.LENS_FACING_FRONT;
+    try {
+      for (String cameraId : cameraManager.getCameraIdList()) {
+        chars = cameraManager.getCameraCharacteristics(cameraId);
+        if (chars.get(CameraCharacteristics.LENS_FACING) == facing) {
+          close();
+          final CameraClient cc = this;
+          cameraManager.openCamera(cameraId, new CameraDevice.StateCallback() {
+            @Override
+            public void onOpened(@NonNull CameraDevice camera) {
+              cc.camera = camera;
+              mode = newMode;
+              confMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+              cameraOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION);
+              cameraOpened = true;
+
+              requestedWidth = width;
+              requestedHeight = height;
+              resultSize = calculatePreviewSize(width, height);
+
+              if (onCameraReady != null)
+                onCameraReady.onCameraReady(cc);
+
+              if (surfaceTexture != null)
+                startPreview(surfaceTexture);
+            }
+
+            @Override
+            public void onDisconnected(@NonNull CameraDevice camera) {
+              if (camera != null)
+                camera.close();
+            }
+
+            @Override
+            public void onError(@NonNull CameraDevice camera, int error) {
+              if (camera != null)
+                camera.close();
+            }
+          }, null);
+        }
+      }
+    } catch (CameraAccessException e) {
+      e.printStackTrace();
     }
-
-    this.requestedWidth = width;
-    this.requestedHeight = height;
-    resultSize = calculatePreviewSize(width, height);
-
-    CaptureRequest.Builder builder = createCaptureRequestBuilder();
-    if (surfaceTexture != null)
-      startPreview(surfaceTexture, builder);
   }
 
   void swap() {
     open(mode.swap(), requestedWidth, requestedHeight);
   }
 
-  private boolean initCamera(CameraMode newMode) {
-    final int facing = newMode == CameraMode.BACK ? CameraCharacteristics.LENS_FACING_BACK : CameraCharacteristics.LENS_FACING_FRONT;
-    try {
-      for (String cameraId : cameraManager.getCameraIdList()) {
-        chars = cameraManager.getCameraCharacteristics(cameraId);
-        if (chars.get(CameraCharacteristics.LENS_FACING) == facing) {
-          mode = newMode;
-          return initCameraWith(cameraId);
-        }
-      }
-    } catch (CameraAccessException e) {
-      e.printStackTrace();
-    }
-    return false;
-  }
-
-  private boolean initCameraWith(String cameraId) throws CameraAccessException {
-    close();
-    final CameraClient cc = this;
-    cameraManager.openCamera(cameraId, new CameraDevice.StateCallback() {
-      @Override
-      public void onOpened(@NonNull CameraDevice camera) {
-        cc.camera = camera;
-      }
-
-      @Override
-      public void onDisconnected(@NonNull CameraDevice camera) {
-        cc.close();
-      }
-
-      @Override
-      public void onError(@NonNull CameraDevice camera, int error) {
-        cc.close();
-      }
-    }, null);
-
-    confMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-    cameraOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION);
-    cameraOpened = true;
-    return true;
-  }
-
   CameraMode getCameraMode() {
     return mode;
   }
 
-  void startPreview(SurfaceTexture surfaceTexture, CaptureRequest.Builder builder) {
+  void startPreview(SurfaceTexture surfaceTexture) {
     this.surfaceTexture = surfaceTexture;
+    if (camera == null)
+      return;
     try {
       surfaceTexture.setDefaultBufferSize(resultSize.getWidth(), resultSize.getHeight());
       Surface surface = new Surface(surfaceTexture);
+      CaptureRequest.Builder builder = createCaptureRequestBuilder();
       builder.addTarget(surface);
       final CaptureRequest captureRequest = builder.build();
 
@@ -128,6 +128,9 @@ class CameraClient {
         @Override
         public void onConfigured(@NonNull CameraCaptureSession session) {
           try {
+            if (camera == null) {
+              return; // ???
+            }
             captureSession = session;
             session.setRepeatingRequest(captureRequest, null, null);
           } catch (CameraAccessException e) {
@@ -137,6 +140,7 @@ class CameraClient {
 
         @Override
         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+
         }
       }, null);
 
@@ -157,7 +161,7 @@ class CameraClient {
     cameraOpened = false;
   }
 
-  private CaptureRequest.Builder createCaptureRequestBuilder() {
+  private CaptureRequest.Builder createCaptureRequestBuilder() throws CameraAccessException {
     CaptureRequest.Builder builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
 
     if (doesSupportFocusModeContinuousVideo()) {
@@ -165,7 +169,7 @@ class CameraClient {
     }
     builder.set(CaptureRequest.CONTROL_CAPTURE_INTENT, CaptureRequest.CONTROL_CAPTURE_INTENT_VIDEO_RECORD);
 
-    rotationMatrix = setRotation();
+    rotationMatrix = getTextureRotationMatrix();
     return builder;
   }
 
@@ -181,7 +185,7 @@ class CameraClient {
 
   public void onOrientationChanged(int orientation) {
     if (camera != null)
-      rotationMatrix = setRotation();
+      rotationMatrix = getTextureRotationMatrix();
   }
 
   private int getDeviceRotation() {
@@ -189,7 +193,12 @@ class CameraClient {
     return windowManager.getDefaultDisplay().getRotation();
   }
 
-
+  /**
+   * Calculate camera preview {@link SurfaceTexture} size based on camera's preview sizes.
+   * @param requestedWidth
+   * @param requestedHeight
+   * @return
+   */
   private Size calculatePreviewSize(int requestedWidth, int requestedHeight) {
     final Size[] sizes = confMap.getOutputSizes(SurfaceTexture.class);
     Size previewSize = null;
@@ -218,7 +227,31 @@ class CameraClient {
     return previewSize;
   }
 
-  private float[] setRotation() {
+  /**
+   * Precalculated 4x4 rotation matrix used by {@link CameraClient#getRotationMatrixByDegrees} function.
+   */
+  private static final float[] transforms = new float[] {
+    1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, // 0
+    1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, // 90
+    0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, // 180
+    -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 // 270
+  };
+
+  /**
+   * Get 4x4 rotation matrix for surface texture clockwise rotation of specified degrees
+   * @param degrees
+   * @return
+   */
+  private static float[] getRotationMatrixByDegrees(int degrees) {
+    final int index = (degrees / 90) * 16;
+    return Arrays.copyOfRange(transforms, index, index + 16);
+  }
+
+  /**
+   * Get 4x4 rotation matrix for surface texture that is used when drawing {@link SurfaceTexture}.
+   * @return
+   */
+  private float[] getTextureRotationMatrix() {
     int rotation = getDeviceRotation();
     int degrees = 0;
     switch (rotation) {
@@ -242,19 +275,10 @@ class CameraClient {
     } else {
       degrees = (cameraOrientation - degrees + 360) % 360;
     }
-    boolean whflipped = degrees == 90 || degrees == 270;
 
-    float[] transform =  new float[] {
-      0, 0, 0, 0,
-      0, 0, 0, 0,
-      0, 0, 1, 0, // FIXME: Should we use z??
-      0, 0, 0, 1
-    };
+    float[] transform = getRotationMatrixByDegrees(degrees);
 
-
-    //Matrix matrix = new Matrix();
-    //matrix.postRotate(
-
+    final boolean whflipped = degrees == 90 || degrees == 270;
     final int texWidth = whflipped ? requestedHeight : requestedWidth;
     final int texHeight = whflipped ? requestedWidth : requestedHeight;
     final int xInd = whflipped ? 1 : 0;
