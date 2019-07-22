@@ -162,6 +162,7 @@ class FlutterRtmpPublisherPlugin(
     public fun setCameraMode(mode: CameraMode) {
       pub.cameraMode = mode
       notifyCamera()
+      notifyCameraSize()
     }
 
     fun notifyCameraSize() {

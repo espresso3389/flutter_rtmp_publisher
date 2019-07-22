@@ -2,7 +2,6 @@ package com.takusemba.rtmppublisher;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
-import android.hardware.Camera;
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
@@ -38,7 +37,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     this.registrar = registrar;
     this.glView = glView;
     // FIXME: Camera preview size fixed here :(
-    this.camera = new CameraClient(registrar.context(), mode, 1920, 1080);
+    this.camera = new CameraClient(registrar.context());
     this.cameraCallback = cameraCallback;
     this.streamer = new Streamer();
     this.listener = listener;
@@ -197,7 +196,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   }
 
   public void setCameraMode(CameraMode mode) {
-    camera.setCameraMode(mode);
+    camera.open(mode, width, height);
     doSetup();
   }
 
@@ -208,8 +207,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   public void onResume() {
     if (isCameraOperating)
       return;
-    camera.setCameraMode(cameraMode);
-    camera.open();
+    camera.open(cameraMode, width, height);
     doSetup();
   }
 
