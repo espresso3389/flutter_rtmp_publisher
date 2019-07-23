@@ -160,6 +160,7 @@ class Haishin : NSObject {
 
   var orientation: AVCaptureVideoOrientation = .portrait
   var position: AVCaptureDevice.Position = .back
+  var previewSize: CGSize = CGSize.zero
 
   public static func initAVFoundation() throws {
     let session = AVAudioSession.sharedInstance()
@@ -255,6 +256,7 @@ class Haishin : NSObject {
     // Screen capture
     //rtmpStream.attachScreen(ScreenCaptureSession(shared: UIApplication.shared))
 
+    previewSize = CGSize(width: width, height: height)
     setCamera(camera: camera)
 
     // emulate Android's cameraSize behavior
@@ -264,7 +266,10 @@ class Haishin : NSObject {
   
   public func setCamera(camera: String) {
     let cameraPos = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
-    rtmpStream!.attachCamera(DeviceUtil.device(withPosition: cameraPos)) { error in
+    let device = AVCaptureDevice.devices().first {
+      $0.hasMediaType(.video) && $0.position == cameraPos && $0.supportsSessionPreset(AVCaptureSession.Preset.hd1920x1080)
+    }
+    rtmpStream!.attachCamera(device) { error in
       print(error)
     }
     let camera1:[String: Any?] = ["name": "camera", "camera": camera]
@@ -406,11 +411,41 @@ extension Haishin : NetStreamDrawable {
 
   func draw(image: CIImage) {
     var cvPixBuf: CVPixelBuffer? = nil
-    if #available(iOS 10.0, *) {
-      cvPixBuf = image.pixelBuffer
-    }
-    if cvPixBuf == nil {
-      // TODO: Implement logic for iOS 9.X or ...
+    var subimage: CIImage? = nil
+    var w: CGFloat
+    var h: CGFloat
+    let allRect = image.extent
+    if allRect.width != previewSize.width || allRect.height != previewSize.height {
+      let scale = min(allRect.width / previewSize.width, allRect.height / previewSize.height)
+      w = previewSize.width * scale
+      h = previewSize.height * scale
+      let rect = CGRect(
+        x: allRect.minX + (allRect.width - w) / 2,
+        y: allRect.minY + (allRect.height - h) / 2,
+        width: w, height: h)
+      
+      let subimage = image.cropped(to: rect).transformed(by: CGAffineTransform.init(translationX: -rect.minX, y: -rect.minY))
+      if #available(iOS 10.0, *) {
+        cvPixBuf = subimage.pixelBuffer
+      }
+      if cvPixBuf == nil {
+        // NOTE: Flutter accepts only BGRA32 image buffers
+        // https://pub.dev/documentation/camera/latest/camzxera/ImageFormatGroup-class.html
+        let options = [
+          kCVPixelBufferCGImageCompatibilityKey as String: true,
+          kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+          kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+          ] as [String : Any]
+        CVPixelBufferCreate(kCFAllocatorDefault, Int(w), Int(h), kCVPixelFormatType_32BGRA, options as CFDictionary?, &cvPixBuf)
+        CIContext().render(subimage, to: cvPixBuf!)
+      }
+    } else {
+      subimage = image
+      w = previewSize.width
+      h = previewSize.height
+      if #available(iOS 10.0, *) {
+        cvPixBuf = subimage!.pixelBuffer
+      }
     }
     let _ = self._lastFrame.getAndSet(newValue: cvPixBuf)
     self.registrar.textures().textureFrameAvailable(self.tex)
