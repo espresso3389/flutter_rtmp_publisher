@@ -140,7 +140,7 @@ class VideoEncoder implements Encoder {
           }
         }
       } catch (Exception e) {
-        listener.onVideoError(e);
+        onError(e);
       } finally {
         release();
       }
@@ -150,9 +150,14 @@ class VideoEncoder implements Encoder {
   private void release() {
     if (encoder != null) {
       isEncoding = false;
-      encoder.stop();
-      encoder.release();
+      try { encoder.stop(); } catch (Exception e) { onError(e); }
+      try { encoder.release(); } catch (Exception e) { onError(e); }
       encoder = null;
     }
+  }
+
+  private void onError(Exception e) {
+    if (listener != null)
+      listener.onVideoError(e);
   }
 }
