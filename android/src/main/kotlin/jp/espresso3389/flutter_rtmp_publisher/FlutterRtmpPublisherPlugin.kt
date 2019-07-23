@@ -13,6 +13,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry.Registrar
 import io.flutter.view.TextureRegistry
+import java.lang.Exception
 
 class FlutterRtmpPublisherPlugin(
   registrar: Registrar): MethodCallHandler {
@@ -219,6 +220,14 @@ class FlutterRtmpPublisherPlugin(
 
     override fun onDisconnected() {
       eventSink!!.success("disconnected")
+    }
+
+    override fun onError(component: String?, e: Exception?) {
+      eventSink!!.success(hashMapOf(
+        "name" to "error",
+        "component" to component,
+        "error" to e.toString()
+      ))
     }
   }
 }

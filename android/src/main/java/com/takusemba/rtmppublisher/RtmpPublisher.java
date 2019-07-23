@@ -323,7 +323,9 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   //
   @Override
   public void onError(String component, Exception e) {
-    Log.i("RtmpPublisher", String.format("%s: %s", component, e.toString()));
+    if (listener != null) {
+      listener.onError(component, e);
+    }
   }
 
   public interface RtmpPublisherListener {
@@ -332,5 +334,6 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     void onDisconnected();
     void onPaused();
     void onResumed();
+    void onError(String component, Exception e);
   }
 }
