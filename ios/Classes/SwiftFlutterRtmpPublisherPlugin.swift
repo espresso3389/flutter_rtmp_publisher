@@ -31,6 +31,12 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
         h.tex = tex
         result(tex)
         return
+      } else if call.method == "close" {
+        let inst = try getHaishin(call)
+        inst.close()
+        instances[inst.tex] = nil
+        result(nil)
+        return
       } else if call.method == "initCaptureConfig" {
         guard let args = call.arguments as! NSDictionary? else { result(nil); return }
         guard let width = args["width"] as! NSNumber? else { result(nil); return }
@@ -78,12 +84,6 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
         guard let args = call.arguments as! NSDictionary? else { result(nil); return }
         guard let camera = args["camera"] as! NSString? else { result(nil); return }
         try getHaishin(call).setCamera(camera: camera as String)
-        result(nil)
-        return
-      } else if call.method == "close" {
-        let inst = try getHaishin(call)
-        inst.close()
-        instances[inst.tex] = nil
         result(nil)
         return
       } else {

@@ -9,16 +9,16 @@ import io.flutter.plugin.common.PluginRegistry
 typealias OnPermissionGranted = (allGranted: Boolean) -> Unit
 
 class PermissionRequester private constructor(private val registrar: PluginRegistry.Registrar) : PluginRegistry.RequestPermissionsResultListener {
-  private val handler = Handler()
   private val requestCode = 3424815
   private var permissionsGranted: OnPermissionGranted? = null
+  private var handler: Handler? = null
 
   init {
     registrar.addRequestPermissionsResultListener(this)
   }
 
 
-  private fun requestPermission(permissions: Array<String>, permissionsGranted: OnPermissionGranted) {
+  private fun requestPermissions(permissions: Array<String>, permissionsGranted: OnPermissionGranted) {
     val perms = ArrayList<String>()
     for (i in permissions.indices) {
       val permission = permissions[i]
@@ -33,6 +33,7 @@ class PermissionRequester private constructor(private val registrar: PluginRegis
     }
 
     this.permissionsGranted = permissionsGranted
+    this.handler = Handler()
     ActivityCompat.requestPermissions(registrar.activity(), perms.toTypedArray(), requestCode)
   }
 
@@ -45,7 +46,7 @@ class PermissionRequester private constructor(private val registrar: PluginRegis
       }
       val tmp = permissionsGranted
       permissionsGranted = null
-      handler.post { tmp!!(results.size == count) }
+      handler!!.post { tmp!!(results.size == count) }
       return true
     }
     return false
@@ -59,10 +60,10 @@ class PermissionRequester private constructor(private val registrar: PluginRegis
       if (instance == null) {
         instance = PermissionRequester(registrar)
       }
-      instance!!.requestPermission(permissions, permissionsGranted)
+      instance!!.requestPermissions(permissions, permissionsGranted)
     }
 
-    fun requestPermission(registrar: PluginRegistry.Registrar, permission: String, permissionsGranted: OnPermissionGranted) {
+    fun requestPermissions(registrar: PluginRegistry.Registrar, permission: String, permissionsGranted: OnPermissionGranted) {
       requestPermissions(registrar, arrayOf(permission), permissionsGranted)
     }
   }

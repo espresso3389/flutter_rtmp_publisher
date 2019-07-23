@@ -52,10 +52,10 @@ class RtmpLiveViewController {
   final status = ValueNotifier<RtmpStatus>(null);
 
   void dispose() {
+    status?.dispose();
     _sub?.cancel();
     _sub = null;
     close();
-    status?.dispose();
   }
 
   Future close() async {

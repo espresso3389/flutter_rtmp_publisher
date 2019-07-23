@@ -92,14 +92,14 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
 
   @Override
   public void onDrawFrame(GL10 unused) {
-    // Latch the latest frame.
-    // If there isn't anything new, we'll just re-use whatever was there before.
-    surfaceTexture.updateTexImage();
-
     if (!isSurfaceCreated) {
       // do not update texture. just return.
       return;
     }
+
+    // Latch the latest frame.
+    // If there isn't anything new, we'll just re-use whatever was there before.
+    surfaceTexture.updateTexImage();
 
     if (isSizeChanged) {
       fullScreen.getProgram().setTexSize(texWidth, texHeight);
