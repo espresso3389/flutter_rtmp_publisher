@@ -51,7 +51,7 @@ class _MyAppState extends State<MyApp> {
             ValueListenableBuilder<RtmpStatus>(
               valueListenable: controller.status,
               builder: (context, status, child) => IconButton(
-                icon: Icon(status.cameraPosition == RtmpLiveViewCameraPosition.back ? Icons.camera_front : Icons.camera_rear),
+                icon: Icon(status == null ? Icons.camera : status.cameraPosition == RtmpLiveViewCameraPosition.back ? Icons.camera_front : Icons.camera_rear),
                 onPressed: status == null ? null : () {
                   controller.swapCamera();
                 }
