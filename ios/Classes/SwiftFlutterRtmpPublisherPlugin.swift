@@ -95,12 +95,12 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
       result(nil)
     }
   }
-  
+
   func initFramework() throws {
     try Haishin.initAVFoundation()
     NotificationCenter.default.addObserver(self, selector: #selector(onRotation), name: UIDevice.orientationDidChangeNotification, object: nil)
   }
-  
+
   @objc func onRotation() {
     let cur = UIDevice.current.orientation
     if lastOrientation != cur {
@@ -144,10 +144,10 @@ class Haishin : NSObject {
       }
     }
   }
-  
+
   var eventChannel: FlutterEventChannel?
   var eventSink: FlutterEventSink?
-  
+
   var rtmpConnection: RTMPConnection?
   var rtmpStream: RTMPStream?
 
@@ -177,7 +177,7 @@ class Haishin : NSObject {
 
   public func close() {
     stopPreview();
-    rtmpConnection?.close()
+    disconnect();
     rtmpStream?.close();
     rtmpStream?.dispose()
     rtmpStream = nil
@@ -263,7 +263,7 @@ class Haishin : NSObject {
     let cameraSize:[String: Any?] = ["name": "cameraSize", "width": width, "height": height]
     eventSink?(cameraSize)
   }
-  
+
   public func setCamera(camera: String) {
     let cameraPos = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
     let device = AVCaptureDevice.devices().first {
@@ -325,7 +325,7 @@ class Haishin : NSObject {
     eventSink?("disconnected")
     return true
   }
-  
+
   public func onOrientation() {
     // TODO: Implement onOrientation event correctly
   }
@@ -378,7 +378,7 @@ class Haishin : NSObject {
       case RTMPConnection.Code.connectRejected.rawValue:
         eventSink?("failedToConnect")
         break
-        
+
       default:
         break
       }
@@ -391,13 +391,13 @@ extension Haishin : FlutterStreamHandler {
     self.eventSink = events
     return nil
   }
-  
+
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     eventSink = nil
     return nil
   }
-  
-  
+
+
 }
 
 extension Haishin : FlutterTexture {
@@ -423,7 +423,7 @@ extension Haishin : NetStreamDrawable {
         x: allRect.minX + (allRect.width - w) / 2,
         y: allRect.minY + (allRect.height - h) / 2,
         width: w, height: h)
-      
+
       let subimage = image.cropped(to: rect).transformed(by: CGAffineTransform.init(translationX: -rect.minX, y: -rect.minY))
       if #available(iOS 10.0, *) {
         cvPixBuf = subimage.pixelBuffer

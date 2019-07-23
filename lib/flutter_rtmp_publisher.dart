@@ -9,7 +9,6 @@ enum RtmpLiveViewCameraPosition {
 
 
 class RtmpStatus {
-  final int tex; // for internal purpose only
   final int width;
   final int height;
   final int fps;
@@ -23,11 +22,10 @@ class RtmpStatus {
 
   double get aspectRatio => height != 0 ? width / height : 1.0;
 
-  RtmpStatus._({this.tex, this.width, this.height, this.fps, this.isStreaming, this.isStreamingPaused, this.cameraPosition, this.rtmpUrl, this.streamName, this.cameraWidth, this.cameraHeight});
+  RtmpStatus._({this.width, this.height, this.fps, this.isStreaming, this.isStreamingPaused, this.cameraPosition, this.rtmpUrl, this.streamName, this.cameraWidth, this.cameraHeight});
 
-  RtmpStatus updateWith({int tex, int width, int height, int fps, bool isStreaming, bool isStreamingPaused, RtmpLiveViewCameraPosition cameraPosition, String rtmpUrl, String streamName, int cameraWidth, int cameraHeight}) {
+  RtmpStatus updateWith({int width, int height, int fps, bool isStreaming, bool isStreamingPaused, RtmpLiveViewCameraPosition cameraPosition, String rtmpUrl, String streamName, int cameraWidth, int cameraHeight}) {
     return RtmpStatus._(
-      tex: tex ?? this.tex,
       width: width ?? this.width,
       height: height ?? this.height,
       fps: fps ?? this.fps,
@@ -49,11 +47,11 @@ class RtmpLiveViewController {
   String _rtmpUrlConnectingTo;
   String _streamNameConnectingTo;
   Orientation _lastOrientation;
+  int _tex;
 
   final status = ValueNotifier<RtmpStatus>(null);
 
   void dispose() {
-    status?.value = null;
     _sub?.cancel();
     _sub = null;
     close();
@@ -61,19 +59,21 @@ class RtmpLiveViewController {
   }
 
   Future close() async {
-    if (status.value == null)
+    if (_tex == null)
       return;
-    final tmp = status.value.tex;
-    status.value = null;
-    await _channel.invokeMethod('close', { 'tex': tmp });
+    final tex = _tex;
+    _tex = null;
+    await _channel.invokeMethod('close', { 'tex': tex });
   }
 
   Future _initTex() async {
     if (!_fxInitialized) {
       await _channel.invokeMethod('initFramework');
     }
-    if (status.value == null)
-      status.value = RtmpStatus._(tex: await _channel.invokeMethod('alloc'));
+    if (_tex == null) {
+      _tex = await _channel.invokeMethod('alloc');
+      status.value = RtmpStatus._();
+    }
   }
 
   Future initialize({@required int width, @required int height, @required int fps, @required RtmpLiveViewCameraPosition cameraPosition, bool restartPreview = true}) async {
@@ -85,7 +85,7 @@ class RtmpLiveViewController {
       isStreaming: false, isStreamingPaused: false,
       cameraPosition: cameraPosition);
 
-    _sub = EventChannel('jp.espresso3389.flutter_rtmp_publisher.instance-${status.value.tex}').receiveBroadcastStream().listen((data) {
+    _sub = EventChannel('jp.espresso3389.flutter_rtmp_publisher.instance-$_tex').receiveBroadcastStream().listen((data) {
       if (data is String) {
         print('RtmpLiveViewController: state changed: $data');
         switch(data) {
@@ -126,7 +126,7 @@ class RtmpLiveViewController {
     });
 
     await _channel.invokeMethod('initCaptureConfig', {
-      'tex': status.value.tex,
+      'tex': _tex,
       'width': status.value.width,
       'height': status.value.height,
       'fps': status.value.fps,
@@ -140,30 +140,30 @@ class RtmpLiveViewController {
   // FIXME: What's the definition of pause??
   Future pause() async {
     _checkParams();
-    await _channel.invokeMethod('pause', { 'tex': status.value.tex });
+    await _channel.invokeMethod('pause', { 'tex': _tex });
   }
 
   // FIXME: What's the definition of resume??
   Future resume() async {
     _checkParams();
-    await _channel.invokeMethod('resume', { 'tex': status.value.tex });
+    await _channel.invokeMethod('resume', { 'tex': _tex });
   }
 
   // FIXME: Android anyway does not implement this :(
   Future _startPreview() async {
     _checkParams();
-    await _channel.invokeMethod('startPreview', { 'tex': status.value.tex });
+    await _channel.invokeMethod('startPreview', { 'tex': _tex });
   }
 
   // FIXME: Android anyway does not implement this :(
   Future _stopPreview() async {
     _checkParams();
-    await _channel.invokeMethod('stopPreview', { 'tex': status.value.tex });
+    await _channel.invokeMethod('stopPreview', { 'tex': _tex });
   }
 
   Future setCamera(RtmpLiveViewCameraPosition cameraPosition) async {
     _checkParams();
-    await _channel.invokeMethod('setCamera', { 'tex': status.value.tex, 'camera': cameraPosition == RtmpLiveViewCameraPosition.back ? 'back' : 'front' });
+    await _channel.invokeMethod('setCamera', { 'tex': _tex, 'camera': cameraPosition == RtmpLiveViewCameraPosition.back ? 'back' : 'front' });
   }
 
   Future swapCamera() async {
@@ -176,7 +176,7 @@ class RtmpLiveViewController {
     _rtmpUrlConnectingTo = rtmpUrl;
     _streamNameConnectingTo = streamName;
     await _channel.invokeMethod('connect', {
-      'tex': status.value.tex,
+      'tex': _tex,
       'url': rtmpUrl,
       'name': streamName
     });
@@ -184,7 +184,7 @@ class RtmpLiveViewController {
 
   Future disconnect() async {
     _checkParams();
-    await _channel.invokeMethod('disconnect', { 'tex': status.value.tex });
+    await _channel.invokeMethod('disconnect', { 'tex': _tex });
   }
 
   void _checkParams() {
@@ -217,7 +217,7 @@ class RtmpLiveView extends StatefulWidget {
   final RtmpLiveViewController controller;
   final bool keepAspectRatio;
 
-  RtmpLiveView({Key key, @required this.controller, this.keepAspectRatio}) : super(key: key);
+  RtmpLiveView({Key key, @required this.controller, this.keepAspectRatio = false}) : super(key: key);
 }
 
 class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver {
@@ -248,8 +248,10 @@ class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver
       valueListenable: widget.controller.status,
       builder: (context, status, child) {
         if (status == null) return Container();
-        if (widget.keepAspectRatio) return AspectRatio(aspectRatio: status.aspectRatio, child: Texture(textureId: status.tex));
-        return Texture(textureId: status.tex);
+        // NOTE: _tex is initialized before status
+        if (widget.keepAspectRatio == true)
+          return AspectRatio(aspectRatio: status.aspectRatio, child: Texture(textureId: widget.controller._tex));
+        return Texture(textureId: widget.controller._tex);
       }
     );
   }
