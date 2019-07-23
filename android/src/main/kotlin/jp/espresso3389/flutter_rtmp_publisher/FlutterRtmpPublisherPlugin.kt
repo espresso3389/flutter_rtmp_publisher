@@ -22,7 +22,7 @@ class FlutterRtmpPublisherPlugin(
   private var registrar: Registrar = registrar
   private var textures: LongSparseArray<RtmpPublisherWrapper> = LongSparseArray()
 
-  private val BITRATE_MAGIC_DIVIDER = 13 // 720p@30fps => 2MB
+  private val BITRATE_MAGIC_DIVIDER = 10
   private val AUDIO_BITRATE = 128 * 1024
 
   companion object {

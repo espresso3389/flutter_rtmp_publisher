@@ -76,8 +76,6 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
     fullScreen = new FullFrameRect(new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT));
     textureId = fullScreen.createTextureObject();
     surfaceTexture = new SurfaceTexture(textureId);
-    Log.i("CameraSurfaceRenderer", String.format("onSurfaceCreated: textureId=%d", textureId));
-
     if (listeners.size() > 0) {
       for (OnRendererStateChangedListener listener : listeners) {
         listener.onSurfaceCreated(surfaceTexture);
@@ -88,7 +86,6 @@ class CameraSurfaceRenderer implements GLSurfaceView.Renderer {
 
   @Override
   public void onSurfaceChanged(GL10 unused, int width, int height) {
-    Log.i("CameraSurfaceRenderer", String.format("onSurfaceChanged: %d x %d", width, height));
     surfaceWidth = width;
     surfaceHeight = height;
   }

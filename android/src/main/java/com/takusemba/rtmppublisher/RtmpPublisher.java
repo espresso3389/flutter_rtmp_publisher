@@ -7,6 +7,7 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
+import android.util.Log;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -14,7 +15,7 @@ import android.widget.LinearLayout;
 import io.flutter.plugin.common.PluginRegistry;
 
 public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, Muxer.StatusListener,
-  CameraSurfaceRenderer.OnRendererStateChangedListener {
+  CameraSurfaceRenderer.OnRendererStateChangedListener, Streamer.StreamerListener {
   private Handler handler = new Handler();
   private PluginRegistry.Registrar registrar;
   private GLSurfaceView glView;
@@ -25,6 +26,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   private RtmpPublisherListener listener;
   private int lastRotation = -1;
   private SurfaceTexture surfaceTexture;
+  private long timeStatedMills;
 
   public static abstract class CameraCallback {
     public abstract void onCameraSizeDetermined(int width, int height);
@@ -43,6 +45,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     this.streamer = new Streamer();
     this.listener = listener;
     this.streamer.setMuxerListener(this);
+    this.streamer.setListener(this);
 
     glView.setEGLContextClientVersion(2);
     renderer = new CameraSurfaceRenderer();
@@ -83,7 +86,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
   private int width;
   private int height;
-  private int fps; // NOT USED
+  private int fps;
   private int audioBitrate;
   private int videoBitrate;
   private CameraMode cameraMode;
@@ -108,6 +111,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
 
   public void startPublishing(String url) {
     rtmpUrl = url;
+    timeStatedMills = System.currentTimeMillis();
     streamer.open(url, width, height);
   }
 
@@ -258,7 +262,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
           @Override
           public void run() {
             // back to main thread
-            streamer.startStreaming(context, width, height, audioBitrate, videoBitrate);
+            streamer.startStreaming(context, width, height, fps, audioBitrate, videoBitrate);
           }
         });
       }
@@ -286,6 +290,9 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     stopPublishing();
     if (listener != null)
       listener.onDisconnected();
+
+    final long duration = System.currentTimeMillis() - timeStatedMills;
+    Log.i("RtmpPublisher", String.format("onDisconnected: duration=%d", duration));
   }
 
   //
@@ -310,6 +317,14 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   @Override
   public void onFrameAvailable(SurfaceTexture surfaceTexture) {
     glView.requestRender();
+  }
+
+  //
+  // Streamer.StreamerListener
+  //
+  @Override
+  public void onError(String component, Exception e) {
+    Log.i("RtmpPublisher", String.format("%s: %s", component, e.toString()));
   }
 
   public interface RtmpPublisherListener {

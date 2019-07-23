@@ -136,10 +136,6 @@ class CameraClient {
       }
     }
 
-    if (!isDesiredSizeFound) {
-      Log.i("CameraClient", String.format("Desired size not found: %d x %d", requestedWidth, requestedHeight));
-    }
-
     List<String> focusModes = params.getSupportedFocusModes();
     if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
       params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);

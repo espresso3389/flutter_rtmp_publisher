@@ -9,13 +9,14 @@ import java.io.IOException;
 
 class VideoHandler implements CameraSurfaceRenderer.OnRendererStateChangedListener {
 
-  private static final int FRAME_RATE = 30;
+  private long frameInterval;
   private VideoEncoder videoEncoder;
   private VideoRenderer videoRenderer;
   private Handler rendererHandler;
 
   interface OnVideoEncoderStateListener {
     void onVideoDataEncoded(byte[] data, int size, int timestamp);
+    void onVideoError(Exception e);
   }
 
   void setOnVideoEncoderStateListener(OnVideoEncoderStateListener listener) {
@@ -27,10 +28,11 @@ class VideoHandler implements CameraSurfaceRenderer.OnRendererStateChangedListen
     this.videoEncoder = new VideoEncoder();
   }
 
-  void start(final int width, final int height, final int bitRate, final EGLContext sharedEglContext, final long startStreamingAt) {
+  void start(final int width, final int height, final int fps, final int bitRate, final EGLContext sharedEglContext, final long startStreamingAt) {
     try {
+      frameInterval = (1000 + fps - 1) / fps;
       rendererHandler = new Handler();
-      videoEncoder.prepare(width, height, bitRate, FRAME_RATE, startStreamingAt);
+      videoEncoder.prepare(width, height, bitRate, fps, startStreamingAt);
       videoEncoder.start();
       videoRenderer.initialize(sharedEglContext, videoEncoder.getInputSurface());
     } catch (IOException ioe) {
@@ -67,15 +69,11 @@ class VideoHandler implements CameraSurfaceRenderer.OnRendererStateChangedListen
       public void run() {
         long elapsedTime = System.currentTimeMillis() - videoEncoder.getLastFrameEncodedAt();
         if (!videoEncoder.isEncoding() || !videoRenderer.isInitialized()
-          || elapsedTime < getFrameInterval()) {
+          || elapsedTime < frameInterval) {
           return;
         }
         videoRenderer.draw(textureId, transform, timestamp);
       }
     });
-  }
-
-  private long getFrameInterval() {
-    return 1000 / FRAME_RATE;
   }
 }

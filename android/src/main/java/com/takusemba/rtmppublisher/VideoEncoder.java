@@ -79,8 +79,8 @@ class VideoEncoder implements Encoder {
       } catch (InterruptedException e) {
         Log.i("VideoEncoder", e.toString());
       }
-      encoderThread = null;
     }
+    encoderThread = null;
   }
 
   @Override
@@ -90,55 +90,60 @@ class VideoEncoder implements Encoder {
 
   class EncoderThread extends Thread {
     public void run() {
-      while (isEncoding) {
-        if (encoder == null) return;
-        int inputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-        if (inputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+      try {
+        while (isEncoding) {
+          if (encoder == null) return;
+          int inputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+          if (inputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
 
-          MediaFormat newFormat = encoder.getOutputFormat();
-          ByteBuffer sps = newFormat.getByteBuffer("csd-0");
-          ByteBuffer pps = newFormat.getByteBuffer("csd-1");
-          byte[] config = new byte[sps.limit() + pps.limit()];
-          sps.get(config, 0, sps.limit());
-          pps.get(config, sps.limit(), pps.limit());
+            MediaFormat newFormat = encoder.getOutputFormat();
+            ByteBuffer sps = newFormat.getByteBuffer("csd-0");
+            ByteBuffer pps = newFormat.getByteBuffer("csd-1");
+            byte[] config = new byte[sps.limit() + pps.limit()];
+            sps.get(config, 0, sps.limit());
+            pps.get(config, sps.limit(), pps.limit());
 
-          listener.onVideoDataEncoded(config, config.length, 0);
-        } else {
-          if (inputBufferId > 0) {
-            ByteBuffer encodedData = encoder.getOutputBuffer(inputBufferId);
-            if (encodedData == null) {
+            listener.onVideoDataEncoded(config, config.length, 0);
+          } else {
+            if (inputBufferId > 0) {
+              ByteBuffer encodedData = encoder.getOutputBuffer(inputBufferId);
+              if (encodedData == null) {
+                continue;
+              }
+
+              if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                bufferInfo.size = 0;
+              }
+
+              if (bufferInfo.size != 0) {
+
+                encodedData.position(bufferInfo.offset);
+                encodedData.limit(bufferInfo.offset + bufferInfo.size);
+
+                long currentTime = System.currentTimeMillis();
+                int timestamp = (int) (currentTime - startStreamingAt);
+                byte[] data = new byte[bufferInfo.size];
+                encodedData.get(data, 0, bufferInfo.size);
+                encodedData.position(bufferInfo.offset);
+
+                listener.onVideoDataEncoded(data, bufferInfo.size, timestamp);
+                lastFrameEncodedAt = currentTime;
+              }
+              encoder.releaseOutputBuffer(inputBufferId, false);
+            } else if (inputBufferId == MediaCodec.INFO_TRY_AGAIN_LATER) {
               continue;
             }
 
-            if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-              bufferInfo.size = 0;
+            if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+              break;
             }
-
-            if (bufferInfo.size != 0) {
-
-              encodedData.position(bufferInfo.offset);
-              encodedData.limit(bufferInfo.offset + bufferInfo.size);
-
-              long currentTime = System.currentTimeMillis();
-              int timestamp = (int) (currentTime - startStreamingAt);
-              byte[] data = new byte[bufferInfo.size];
-              encodedData.get(data, 0, bufferInfo.size);
-              encodedData.position(bufferInfo.offset);
-
-              listener.onVideoDataEncoded(data, bufferInfo.size, timestamp);
-              lastFrameEncodedAt = currentTime;
-            }
-            encoder.releaseOutputBuffer(inputBufferId, false);
-          } else if (inputBufferId == MediaCodec.INFO_TRY_AGAIN_LATER) {
-            continue;
-          }
-
-          if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-            break;
           }
         }
+      } catch (Exception e) {
+        listener.onVideoError(e);
+      } finally {
+        release();
       }
-      release();
     }
   }
 

@@ -12,6 +12,7 @@ class AudioHandler implements AudioRecorder.OnAudioRecorderStateChangedListener 
 
   interface OnAudioEncoderStateListener {
     void onAudioDataEncoded(byte[] data, int size, int timestamp);
+    void onAudioError(Exception e);
   }
 
   void setOnAudioEncoderStateListener(AudioHandler.OnAudioEncoderStateListener listener) {

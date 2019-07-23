@@ -58,7 +58,6 @@ class AudioRecorder {
     }
     if (recordingThread != null) {
       try {
-        Log.i("AudioRecorder", "Terminating recording thread...");
         recordingThread.join();
         Log.i("AudioRecorder", "Recording thread terminated.");
       } catch (InterruptedException e) {

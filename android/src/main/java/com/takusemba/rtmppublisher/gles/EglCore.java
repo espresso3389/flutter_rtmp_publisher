@@ -356,8 +356,7 @@ public final class EglCore {
         display = EGL14.eglGetCurrentDisplay();
         context = EGL14.eglGetCurrentContext();
         surface = EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW);
-        Log.i(TAG, "Current EGL (" + msg + "): display=" + display + ", context=" + context +
-                ", surface=" + surface);
+        Log.i(TAG, "Current EGL (" + msg + "): display=" + display + ", context=" + context + ", surface=" + surface);
     }
 
     /**

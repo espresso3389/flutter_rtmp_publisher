@@ -65,14 +65,13 @@ class AudioEncoder implements Encoder {
       int inputBufferId = encoder.dequeueInputBuffer(TIMEOUT_USEC);
       encoder.queueInputBuffer(inputBufferId, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
       try {
-        Log.i("AudioEncoder", "Terminating encoder thread...");
         encoderThread.join();
         Log.i("AudioRecorder", "Encoder thread terminated.");
       } catch (InterruptedException e) {
         Log.i("AudioEncoder", e.toString());
       }
-      encoderThread = null;
     }
+    encoderThread = null;
   }
 
   @Override
@@ -100,38 +99,43 @@ class AudioEncoder implements Encoder {
 
   class AudioEncoderThread extends Thread {
     public void run() {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      // keep running... so use a different thread.
-      while (isEncoding) {
-        int outputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
-        if (outputBufferId >= 0) {
-          ByteBuffer encodedData = encoder.getOutputBuffer(outputBufferId);
-          if (encodedData == null) {
-            continue;
+      try {
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        // keep running... so use a different thread.
+        while (isEncoding) {
+          int outputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
+          if (outputBufferId >= 0) {
+            ByteBuffer encodedData = encoder.getOutputBuffer(outputBufferId);
+            if (encodedData == null) {
+              continue;
+            }
+
+            encodedData.position(bufferInfo.offset);
+            encodedData.limit(bufferInfo.offset + bufferInfo.size);
+
+            byte[] data = new byte[bufferInfo.size];
+
+            encodedData.get(data, 0, bufferInfo.size);
+            encodedData.position(bufferInfo.offset);
+
+            long currentTime = System.currentTimeMillis();
+            int timestamp = (int) (currentTime - startedEncodingAt);
+            listener.onAudioDataEncoded(data, bufferInfo.size, timestamp);
+
+            encoder.releaseOutputBuffer(outputBufferId, false);
+          } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+            // format should not be changed
           }
-
-          encodedData.position(bufferInfo.offset);
-          encodedData.limit(bufferInfo.offset + bufferInfo.size);
-
-          byte[] data = new byte[bufferInfo.size];
-
-          encodedData.get(data, 0, bufferInfo.size);
-          encodedData.position(bufferInfo.offset);
-
-          long currentTime = System.currentTimeMillis();
-          int timestamp = (int) (currentTime - startedEncodingAt);
-          listener.onAudioDataEncoded(data, bufferInfo.size, timestamp);
-
-          encoder.releaseOutputBuffer(outputBufferId, false);
-        } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-          // format should not be changed
+          if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+            //end of stream
+            break;
+          }
         }
-        if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-          //end of stream
-          break;
-        }
+      } catch (Exception e) {
+        listener.onAudioError(e);
+      } finally {
+        release();
       }
-      release();
     }
   }
 
