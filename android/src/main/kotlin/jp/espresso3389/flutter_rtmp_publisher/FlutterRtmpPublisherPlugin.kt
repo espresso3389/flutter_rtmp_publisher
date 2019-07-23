@@ -164,11 +164,11 @@ class FlutterRtmpPublisherPlugin(
     }
 
     fun connect(rtmpUrl: String) {
-      pub.startPublishing(rtmpUrl)
+      pub.connect(rtmpUrl)
     }
 
     fun disconnect() {
-      pub.stopPublishing()
+      pub.disconnect()
     }
 
     fun pause() {

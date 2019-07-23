@@ -26,6 +26,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   private int lastRotation = -1;
   private SurfaceTexture surfaceTexture;
   private long timeStatedMills;
+  private int shortDisconnectionCount = 0;
 
   public static abstract class CameraCallback {
     public abstract void onCameraSizeDetermined(int width, int height);
@@ -67,7 +68,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   }
 
   public void release() {
-    stopPublishing();
+    disconnect();
 
     if (renderer != null) {
       renderer.pause();
@@ -92,6 +93,9 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   private boolean isCameraOperating = false;
   private String rtmpUrl;
 
+  private boolean activelyDisconnecting = false;
+  private long lastDisconnectTimestamp;
+
   public void setCaptureConfig(int width, int height, int fps, CameraMode cameraMode, int audioBitRate, int videoBitRate) {
     this.width = width;
     this.height = height;
@@ -99,28 +103,30 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     this.cameraMode = cameraMode;
     this.audioBitrate = audioBitRate;
     this.videoBitrate = videoBitRate;
-    boolean publishing = isPublishing();
+    boolean publishing = isConnected();
     if (publishing)
-      stopPublishing();
+      disconnect();
     onActivityPause();
     onActivityResume();
     if (publishing)
-      startPublishing(rtmpUrl);
+      connect(rtmpUrl);
   }
 
-  public void startPublishing(String url) {
+  public void connect(String url) {
+    activelyDisconnecting = false;
     rtmpUrl = url;
     timeStatedMills = System.currentTimeMillis();
     streamer.open(url, width, height);
   }
 
-  public void stopPublishing() {
+  public void disconnect() {
+    activelyDisconnecting = true;
     if (streamer.isStreaming()) {
       streamer.stopStreaming();
     }
   }
 
-  public boolean isPublishing() {
+  public boolean isConnected() {
     return streamer.isStreaming();
   }
 
@@ -286,12 +292,47 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   }
   @Override
   public void onDisconnected() {
-    stopPublishing();
+    final boolean _activelyDisconnecting = activelyDisconnecting;
+    disconnect();
     if (listener != null)
       listener.onDisconnected();
 
     final long duration = System.currentTimeMillis() - timeStatedMills;
-    Log.i("RtmpPublisher", String.format("onDisconnected: duration=%d", duration));
+    Log.i("RtmpPublisher", String.format("onDisconnected: duration=%d (msec.)", duration));
+
+    activelyDisconnecting = false;
+
+    if (_activelyDisconnecting) {
+      return;
+    }
+
+    // OK, this is not intentional disconnection; we should reconnect to the server
+    final long _lastDisconnectTimestamp = lastDisconnectTimestamp;
+    final long now = lastDisconnectTimestamp = System.currentTimeMillis();
+    final long prevDuration = now - _lastDisconnectTimestamp;
+
+    if (prevDuration < 3000) {
+      // mmm, the connection got disconnected in very short term
+      shortDisconnectionCount++;
+    } else {
+      // relatively long connection; we'll reset the disconnection counter
+      shortDisconnectionCount = 0;
+    }
+
+    if (shortDisconnectionCount > 3) {
+      // connection may be so unstable, we don't try to reconnect again
+      Log.i("RtmpPublisher", "Give up reconnecting!");
+      return;
+    }
+
+    // OK, we'll try to reconnect again
+    Log.i("RtmpPublisher", String.format("Attempting to reconnect (#%d)...", shortDisconnectionCount + 1));
+    handler.post(new Runnable() {
+      @Override
+      public void run() {
+        connect(rtmpUrl);
+      }
+    });
   }
 
   //
