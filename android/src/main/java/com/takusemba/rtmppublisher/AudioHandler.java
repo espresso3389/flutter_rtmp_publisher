@@ -15,8 +15,16 @@ class AudioHandler implements AudioRecorder.OnAudioRecorderStateChangedListener 
     void onAudioError(Exception e);
   }
 
+  AudioHandler.OnAudioEncoderStateListener listener;
+
   void setOnAudioEncoderStateListener(AudioHandler.OnAudioEncoderStateListener listener) {
     audioEncoder.setOnAudioEncoderStateListener(listener);
+    this.listener = listener;
+  }
+
+  public void onAudioError(Exception e) {
+    if (listener != null)
+      listener.onAudioError(e);
   }
 
   AudioHandler() {

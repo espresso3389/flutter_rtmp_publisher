@@ -5,7 +5,7 @@ import android.os.Handler;
 import android.util.Log;
 
 class Streamer
-  implements VideoHandler.OnVideoEncoderStateListener, AudioHandler.OnAudioEncoderStateListener {
+  implements Muxer.StatusListener, VideoHandler.OnVideoEncoderStateListener, AudioHandler.OnAudioEncoderStateListener {
 
   public interface StreamerListener {
     void onError(String component, Exception e);
@@ -13,12 +13,15 @@ class Streamer
 
   private Handler handler;
   private StreamerListener listener;
+  private Muxer.StatusListener muxerListener;
   private VideoHandler videoHandler;
   private AudioHandler audioHandler;
-  private Muxer muxer = new Muxer();
+  private Muxer muxer;
   private boolean paused = false;
 
   Streamer() {
+    muxer = new Muxer();
+    muxer.setOnMuxerStateListener(this);
     this.videoHandler = new VideoHandler();
     this.audioHandler = new AudioHandler();
   }
@@ -101,8 +104,33 @@ class Streamer
   }
 
   void setMuxerListener(Muxer.StatusListener listener) {
-    muxer.setOnMuxerStateListener(listener);
+    muxerListener = listener;
   }
 
   void setListener(StreamerListener listener) { this.listener = listener; }
+
+
+  public void onConnected() {
+    if (muxerListener != null)
+      muxerListener.onConnected();
+  }
+  public void onFailedToConnect() {
+    if (muxerListener != null)
+      muxerListener.onFailedToConnect();
+  }
+  public void onPaused() {
+    if (muxerListener != null)
+      muxerListener.onPaused();
+  }
+  public void onResumed() {
+    if (muxerListener != null)
+      muxerListener.onResumed();
+  }
+  public void onDisconnected() {
+
+    stopStreaming();
+
+    if (muxerListener != null)
+      muxerListener.onDisconnected();
+  }
 }
