@@ -1,8 +1,6 @@
 package jp.espresso3389.flutter_rtmp_publisher
 
 import android.Manifest
-import android.hardware.Camera
-import android.os.Handler
 import android.util.Log
 import android.util.LongSparseArray
 import android.util.Size
@@ -45,7 +43,7 @@ class FlutterRtmpPublisherPlugin(
       call.method == "release" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        rtmpPub.pub.release()
+        rtmpPub.release()
         textures.delete(tex)
         result.success(true)
       }
@@ -71,25 +69,25 @@ class FlutterRtmpPublisherPlugin(
       call.method == "pause" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        rtmpPub.pub.pause()
+        rtmpPub.pause()
         result.success(true)
       }
       call.method == "resume" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        rtmpPub.pub.resume()
+        rtmpPub.resume()
         result.success(true)
       }
       call.method == "startPreview" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        rtmpPub.pub.onResume()
+        rtmpPub.onActivityResume()
         result.success(true)
       }
       call.method == "stopPreview" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        rtmpPub.pub.onPause()
+        rtmpPub.onActivityPause()
         result.success(true)
       }
       call.method == "connect" -> {
@@ -104,13 +102,13 @@ class FlutterRtmpPublisherPlugin(
         rtmpUrl += name
 
         val rtmpPub = textures[tex]
-        rtmpPub.pub.startPublishing(rtmpUrl!!)
+        rtmpPub.connect(rtmpUrl!!)
         result.success(true)
       }
       call.method == "disconnect" -> {
         val tex = call.argument<Number>("tex")!!.toLong()
         val rtmpPub = textures[tex]
-        rtmpPub.pub.stopPublishing()
+        rtmpPub.disconnect()
         result.success(true)
       }
       call.method == "setCamera" -> {
@@ -134,7 +132,7 @@ class FlutterRtmpPublisherPlugin(
     private var cameraSize: Size? = null
     private val flutterSurface: TextureRegistry.SurfaceTextureEntry = flutterTexture
     private val glSurfaceView: FlutterGLSurfaceView = FlutterGLSurfaceView(registrar, flutterTexture.surfaceTexture())
-    val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
+    private val pub: RtmpPublisher = RtmpPublisher(registrar, glSurfaceView, CameraMode.BACK, this, object: RtmpPublisher.CameraCallback() {
       override fun onCameraSizeDetermined(width: Int, height: Int) {
         cameraSize = Size(width, height)
         Log.i("RtmpPublisherWrapper", String.format("onCameraSizeDetermined: %d, %d", width, height))
@@ -154,14 +152,43 @@ class FlutterRtmpPublisherPlugin(
       })
     }
 
-    public fun setCaptureConfig(width: Int, height: Int, fps: Int, cameraMode: CameraMode, audioBitRate: Int, videoBitRate: Int) {
+    fun setCaptureConfig(width: Int, height: Int, fps: Int, cameraMode: CameraMode, audioBitRate: Int, videoBitRate: Int) {
       flutterSurface.surfaceTexture().setDefaultBufferSize(width, height)
       pub.setCaptureConfig(width, height, fps, cameraMode, audioBitRate, videoBitRate)
     }
 
-    public fun setCameraMode(mode: CameraMode) {
+    fun setCameraMode(mode: CameraMode) {
       pub.cameraMode = mode
       notifyCamera()
+    }
+
+    fun connect(rtmpUrl: String) {
+      pub.startPublishing(rtmpUrl)
+    }
+
+    fun disconnect() {
+      pub.stopPublishing()
+    }
+
+    fun pause() {
+      pub.pause()
+    }
+
+    fun resume() {
+      pub.resume()
+    }
+
+    fun onActivityPause() {
+      pub.onActivityPause()
+    }
+
+    fun onActivityResume() {
+      pub.onActivityResume()
+    }
+
+    fun release() {
+      pub.release()
+      eventSink!!.endOfStream()
     }
 
     fun notifyCameraSize() {

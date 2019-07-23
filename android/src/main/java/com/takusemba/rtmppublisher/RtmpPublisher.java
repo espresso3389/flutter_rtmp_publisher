@@ -2,7 +2,6 @@ package com.takusemba.rtmppublisher;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
-import android.hardware.Camera;
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
@@ -103,8 +102,8 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     boolean publishing = isPublishing();
     if (publishing)
       stopPublishing();
-    onPause();
-    onResume();
+    onActivityPause();
+    onActivityResume();
     if (publishing)
       startPublishing(rtmpUrl);
   }
@@ -209,7 +208,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     return camera.getCameraMode();
   }
 
-  public void onResume() {
+  public void onActivityResume() {
     if (isCameraOperating)
       return;
     camera.setCameraMode(cameraMode);
@@ -228,7 +227,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
     isCameraOperating = true;
   }
 
-  public void onPause() {
+  public void onActivityPause() {
     if (isCameraOperating) {
       surfaceTexture = null;
       if (camera != null) {
@@ -300,7 +299,7 @@ public class RtmpPublisher implements SurfaceTexture.OnFrameAvailableListener, M
   //
   @Override
   public void onSurfaceCreated(SurfaceTexture surfaceTexture) {
-    onResume();
+    onActivityResume();
     surfaceTexture.setDefaultBufferSize(camera.getResultWidth(), camera.getResultHeight());
     surfaceTexture.setOnFrameAvailableListener(this);
     camera.startPreview(surfaceTexture);
