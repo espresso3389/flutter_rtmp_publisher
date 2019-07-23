@@ -114,8 +114,10 @@ public class Muxer {
   public void close() {
     closeInternal();
     muxerThreadHandler = null;
-    muxerThread.quitSafely();
-    muxerThread = null;
+    if (muxerThread != null) {
+      muxerThread.quitSafely();
+      muxerThread = null;
+    }
     postDisconnected();
   }
 
