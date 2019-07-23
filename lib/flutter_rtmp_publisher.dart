@@ -214,8 +214,9 @@ class RtmpLiveView extends StatefulWidget {
   _RtmpLiveViewState createState() => _RtmpLiveViewState();
 
   final RtmpLiveViewController controller;
+  final bool keepAspectRatio;
 
-  RtmpLiveView({Key key, @required this.controller}) : super(key: key);
+  RtmpLiveView({Key key, @required this.controller, this.keepAspectRatio}) : super(key: key);
 }
 
 class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver {
@@ -244,9 +245,11 @@ class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     return ValueListenableBuilder<RtmpStatus>(
       valueListenable: widget.controller.status,
-      builder: (context, status, child) => status != null
-      ? Texture(textureId: status.tex)
-      : Container()
+      builder: (context, status, child) {
+        if (status == null) return Container();
+        if (widget.keepAspectRatio) return AspectRatio(aspectRatio: status.aspectRatio, child: Texture(textureId: status.tex));
+        return Texture(textureId: status.tex);
+      }
     );
   }
 }
