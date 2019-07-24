@@ -22,7 +22,7 @@ class FlutterRtmpPublisherPlugin(
   private var textures: LongSparseArray<RtmpPublisherWrapper> = LongSparseArray()
 
   private val BITRATE_MAGIC_DIVIDER = 13
-  private val AUDIO_BITRATE = 128 * 1024
+  private val AUDIO_BITRATE = 64000
 
   companion object {
     @JvmStatic

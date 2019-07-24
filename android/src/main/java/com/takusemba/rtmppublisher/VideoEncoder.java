@@ -96,17 +96,17 @@ class VideoEncoder implements Encoder {
           int inputBufferId = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
           if (inputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
 
-            MediaFormat newFormat = encoder.getOutputFormat();
-            ByteBuffer sps = newFormat.getByteBuffer("csd-0");
-            ByteBuffer pps = newFormat.getByteBuffer("csd-1");
-            byte[] config = new byte[sps.limit() + pps.limit()];
+            final MediaFormat newFormat = encoder.getOutputFormat();
+            final ByteBuffer sps = newFormat.getByteBuffer("csd-0");
+            final ByteBuffer pps = newFormat.getByteBuffer("csd-1");
+            final byte[] config = new byte[sps.limit() + pps.limit()];
             sps.get(config, 0, sps.limit());
             pps.get(config, sps.limit(), pps.limit());
 
-            listener.onVideoDataEncoded(config, config.length, 0);
+            listener.onVideoDataEncoded(config, 0, config.length, 0);
           } else {
             if (inputBufferId > 0) {
-              ByteBuffer encodedData = encoder.getOutputBuffer(inputBufferId);
+              final ByteBuffer encodedData = encoder.getOutputBuffer(inputBufferId);
               if (encodedData == null) {
                 continue;
               }
@@ -120,13 +120,13 @@ class VideoEncoder implements Encoder {
                 encodedData.position(bufferInfo.offset);
                 encodedData.limit(bufferInfo.offset + bufferInfo.size);
 
-                long currentTime = System.currentTimeMillis();
-                int timestamp = (int) (currentTime - startStreamingAt);
-                byte[] data = new byte[bufferInfo.size];
+                final long currentTime = System.currentTimeMillis();
+                final int timestamp = (int) (currentTime - startStreamingAt);
+                final byte[] data = new byte[bufferInfo.size];
                 encodedData.get(data, 0, bufferInfo.size);
                 encodedData.position(bufferInfo.offset);
 
-                listener.onVideoDataEncoded(data, bufferInfo.size, timestamp);
+                listener.onVideoDataEncoded(data, 0, bufferInfo.size, timestamp);
                 lastFrameEncodedAt = currentTime;
               }
               encoder.releaseOutputBuffer(inputBufferId, false);

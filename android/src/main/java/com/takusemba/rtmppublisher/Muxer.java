@@ -3,6 +3,7 @@ package com.takusemba.rtmppublisher;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.Process;
 
 import net.butterflytv.rtmp_client.RTMPMuxer;
 
@@ -51,7 +52,7 @@ public class Muxer {
   public void open(final String url, final int width, final int height) {
     closeInternal();
     if (muxerThread == null) {
-      muxerThread = new HandlerThread("Muxer");
+      muxerThread = new HandlerThread("Muxer", Process.THREAD_PRIORITY_VIDEO);
       muxerThread.start();
       muxerThreadHandler = new Handler(muxerThread.getLooper());
     }
@@ -76,26 +77,26 @@ public class Muxer {
     });
   }
 
-  public void sendVideo(final byte[] data, final int length, final int timestamp) {
+  public void sendVideo(final byte[] data, final int offset, final int length, final int timestamp) {
     if (muxerThreadHandler == null)
       return;
     muxerThreadHandler.post(new Runnable() {
       @Override
       public void run() {
         if (ensureConnected() && !paused.get())
-          rtmpMuxer.writeVideo(data, 0, length, timestamp);
+          rtmpMuxer.writeVideo(data, offset, length, timestamp);
       }
     });
   }
 
-  public void sendAudio(final byte[] data, final int length, final int timestamp) {
+  public void sendAudio(final byte[] data, final int offset, final int length, final int timestamp) {
     if (muxerThreadHandler == null)
       return;
     muxerThreadHandler.post(new Runnable() {
       @Override
       public void run() {
         if (ensureConnected() && !paused.get())
-          rtmpMuxer.writeAudio(data, 0, length, timestamp);
+          rtmpMuxer.writeAudio(data, offset, length, timestamp);
       }
     });
   }

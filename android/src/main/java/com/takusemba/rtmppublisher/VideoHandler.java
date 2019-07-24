@@ -15,7 +15,7 @@ class VideoHandler implements CameraSurfaceRenderer.OnRendererStateChangedListen
   private Handler rendererHandler;
 
   interface OnVideoEncoderStateListener {
-    void onVideoDataEncoded(byte[] data, int size, int timestamp);
+    void onVideoDataEncoded(byte[] data, int offset, int size, int timestamp);
     void onVideoError(Exception e);
   }
 

@@ -15,7 +15,7 @@ class AudioRecorder {
   private RecordingThread recordingThread;
 
   interface OnAudioRecorderStateChangedListener {
-    void onAudioRecorded(byte[] data, int length);
+    void onAudioRecorded(byte[] data, int offset, int length);
     void onAudioError(Exception e);
   }
 
@@ -44,9 +44,8 @@ class AudioRecorder {
       try {
         int bufferReadResult;
         byte[] data = new byte[bufferSize];
-        // keep running... so use a different thread.
         while (isRecording() && (bufferReadResult = audioRecord.read(data, 0, bufferSize)) > 0) {
-          listener.onAudioRecorded(data, bufferReadResult);
+          listener.onAudioRecorded(data, 0, bufferReadResult);
         }
       } catch (Exception e) {
         onError(e);

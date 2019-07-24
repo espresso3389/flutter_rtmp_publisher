@@ -11,7 +11,7 @@ class AudioHandler implements AudioRecorder.OnAudioRecorderStateChangedListener 
   private AudioRecorder audioRecorder;
 
   interface OnAudioEncoderStateListener {
-    void onAudioDataEncoded(byte[] data, int size, int timestamp);
+    void onAudioDataEncoded(byte[] data, int offset, int size, int timestamp);
     void onAudioError(Exception e);
   }
 
@@ -49,7 +49,7 @@ class AudioHandler implements AudioRecorder.OnAudioRecorderStateChangedListener 
   }
 
   @Override
-  public void onAudioRecorded(final byte[] data, final int length) {
-    audioEncoder.enqueueData(data, length);
+  public void onAudioRecorded(final byte[] data, final int offset, final int length) {
+    audioEncoder.enqueueData(data, offset, length);
   }
 }
