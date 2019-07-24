@@ -266,9 +266,9 @@ class Haishin : NSObject {
   }
   
   public func setCamera(camera: String) {
-    let cameraPos = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
+    position = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
     let device = AVCaptureDevice.devices().first {
-      $0.hasMediaType(.video) && $0.position == cameraPos && $0.supportsSessionPreset(AVCaptureSession.Preset.hd1920x1080)
+      $0.hasMediaType(.video) && $0.position == position && $0.supportsSessionPreset(AVCaptureSession.Preset.hd1920x1080)
     }
     rtmpStream!.attachCamera(device) { error in
       print(error)
@@ -409,7 +409,18 @@ extension Haishin : FlutterTexture {
 extension Haishin : NetStreamDrawable {
   
   func rot(image: CIImage) -> CGAffineTransform {
-    switch devOrientation {
+    
+    // for front-facing camera, swap left and right
+    var ori = devOrientation
+    if position == .front {
+      if (ori == .landscapeLeft) {
+        ori = .landscapeRight
+      } else if (ori == .landscapeRight) {
+        ori = .landscapeLeft
+      }
+    }
+    
+    switch ori {
     case .portrait:
       return CGAffineTransform.identity
     case .portraitUpsideDown:
