@@ -316,13 +316,18 @@ class Haishin : NSObject {
     print("resumed not yet implemented on iOS.")
   }
   
-  public func disconnect() -> Bool {
+  private func disconnectWithoutNotify() -> Bool {
     guard rtmpConnection != nil && rtmpStream != nil else {
       return false
     }
     // NOTE: disconnect event does not fire by expcilit close call anyway
     rtmpConnection!.removeEventListener(Event.RTMP_STATUS, selector: #selector(rtmpStatusHandler), observer: self)
     rtmpConnection!.close()
+    return true
+  }
+  
+  public func disconnect() -> Bool {
+    if !disconnectWithoutNotify() { return false }
     eventSink?("disconnected")
     return true
   }
@@ -381,8 +386,20 @@ class Haishin : NSObject {
         break
         
       default:
+        if let level = data["level"] as? String {
+          if level == "error" {
+            if rtmpStream!.readyState == .publish {
+              disconnectWithoutNotify()
+              eventSink?("failedToConnect")
+              return
+            }
+          }
+        }
         break
       }
+      print("rtmpStatusHandler: state=\(rtmpStream!.readyState) \(code.debugDescription): \(data)")
+    } else {
+      print("rtmpStatusHandler: state=\(rtmpStream!.readyState) \(e.data.debugDescription)")
     }
   }
 }
