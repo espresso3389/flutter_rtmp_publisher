@@ -46,7 +46,6 @@ class RtmpLiveViewController {
   StreamSubscription<dynamic> _sub;
   String _rtmpUrlConnectingTo;
   String _streamNameConnectingTo;
-  Orientation _lastOrientation;
   int _tex;
 
   final status = ValueNotifier<RtmpStatus>(null);
@@ -59,9 +58,9 @@ class RtmpLiveViewController {
   }
 
   Future close() async {
-    if (_tex == null)
-      return;
     final tex = _tex;
+    if (tex == null)
+      return;
     _tex = null;
     await _channel.invokeMethod('close', { 'tex': tex });
   }
@@ -247,8 +246,8 @@ class _RtmpLiveViewState extends State<RtmpLiveView> with WidgetsBindingObserver
     return ValueListenableBuilder<RtmpStatus>(
       valueListenable: widget.controller.status,
       builder: (context, status, child) {
-        if (status == null) return Container();
         // NOTE: _tex is initialized before status
+        if (status == null || widget.controller._tex == null) return Container();
         if (widget.keepAspectRatio == true)
           return AspectRatio(aspectRatio: status.aspectRatio, child: Texture(textureId: widget.controller._tex));
         return Texture(textureId: widget.controller._tex);

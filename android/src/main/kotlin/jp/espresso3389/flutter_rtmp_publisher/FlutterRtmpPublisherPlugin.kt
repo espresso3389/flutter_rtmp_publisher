@@ -192,7 +192,7 @@ class FlutterRtmpPublisherPlugin(
 
     fun release() {
       pub.release()
-      eventSink!!.endOfStream()
+      eventSink?.endOfStream()
     }
 
     fun notifyCameraSize() {
