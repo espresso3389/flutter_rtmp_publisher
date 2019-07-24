@@ -66,17 +66,17 @@ class Streamer
   }
 
   @Override
-  public void onVideoDataEncoded(byte[] data, int size, int timestamp) {
+  public void onVideoDataEncoded(byte[] data, int offset, int size, int timestamp) {
     if (paused)
       return;
-    muxer.sendVideo(data, size, timestamp);
+    muxer.sendVideo(data, offset, size, timestamp);
   }
 
   @Override
-  public void onAudioDataEncoded(byte[] data, int size, int timestamp) {
+  public void onAudioDataEncoded(byte[] data, int offset, int size, int timestamp) {
     if (paused)
       return;
-    muxer.sendAudio(data, size, timestamp);
+    muxer.sendAudio(data, offset, size, timestamp);
   }
 
   @Override
