@@ -9,15 +9,15 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
     let instance = SwiftFlutterRtmpPublisherPlugin(registrar: registrar)
     registrar.addMethodCallDelegate(instance, channel: channel)
   }
-
+  
   init(registrar: FlutterPluginRegistrar) {
     self.registrar = registrar
   }
-
+  
   let registrar: FlutterPluginRegistrar
   var instances: [Int64:Haishin] = [:]
   var lastOrientation: UIDeviceOrientation? = nil
-
+  
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     do {
       if call.method == "initFramework" {
@@ -95,28 +95,28 @@ public class SwiftFlutterRtmpPublisherPlugin: NSObject, FlutterPlugin {
       result(nil)
     }
   }
-
+  
   func initFramework() throws {
     try Haishin.initAVFoundation()
     NotificationCenter.default.addObserver(self, selector: #selector(onRotation), name: UIDevice.orientationDidChangeNotification, object: nil)
   }
-
+  
   @objc func onRotation() {
     let cur = UIDevice.current.orientation
     if lastOrientation != cur {
       lastOrientation = cur
       for tex in instances.keys {
-        instances[tex]?.onOrientation()
+        instances[tex]?.onOrientation(orientation: cur)
       }
     }
   }
-
+  
   enum HaishinError : Error {
     case InvalidArgument
     case InvalidInstance
     case InvalidInstanceId
   }
-
+  
   func getHaishin(_ call: FlutterMethodCall) throws -> Haishin {
     guard let args = call.arguments as! NSDictionary? else { throw HaishinError.InvalidArgument }
     guard let tex = args["tex"] as! NSNumber? else { throw HaishinError.InvalidArgument }
@@ -131,7 +131,7 @@ class Haishin : NSObject {
   init(registrar: FlutterPluginRegistrar) {
     self.registrar = registrar
   }
-
+  
   let registrar: FlutterPluginRegistrar
   private var _tex: Int64 = -1
   var tex: Int64 {
@@ -144,21 +144,22 @@ class Haishin : NSObject {
       }
     }
   }
-
+  
   var eventChannel: FlutterEventChannel?
   var eventSink: FlutterEventSink?
-
+  
   var rtmpConnection: RTMPConnection?
   var rtmpStream: RTMPStream?
-
+  
   let _lastFrame = AtomicReference<CVPixelBuffer?>(initialValue: nil)
-
+  
   var session: AVCaptureSession? = nil
   var currentStream: NetStream? = nil
 
   var streamName: String = "Untitled"
 
-  var orientation: AVCaptureVideoOrientation = .portrait
+  var orientation: AVCaptureVideoOrientation = .portrait // needed by NetStreamDrawble
+  var devOrientation: UIDeviceOrientation = .portrait
   var position: AVCaptureDevice.Position = .back
   var previewSize: CGSize = CGSize.zero
 
@@ -174,7 +175,7 @@ class Haishin : NSObject {
     try session.setMode(AVAudioSession.Mode.default)
     try session.setActive(true)
   }
-
+  
   public func close() {
     stopPreview();
     disconnect();
@@ -183,14 +184,14 @@ class Haishin : NSObject {
     rtmpStream = nil
     rtmpConnection = nil
   }
-
+  
   // camera: "back" or "front"
   public func initStream(width: Int, height: Int, fps: Int, camera: String) {
     close()
-
+    
     rtmpConnection = RTMPConnection()
     let sampleRate:Double = 44_100
-
+    
     let session = AVAudioSession.sharedInstance()
     do {
       try session.setPreferredSampleRate(44_100)
@@ -203,9 +204,9 @@ class Haishin : NSObject {
       try session.setActive(true)
     } catch {
     }
-
+    
     rtmpStream = RTMPStream(connection: rtmpConnection!)
-
+    
     rtmpStream!.captureSettings = [
       "fps": fps, // FPS
       "sessionPreset": AVCaptureSession.Preset.medium.rawValue, // input video width/height
@@ -247,23 +248,23 @@ class Haishin : NSObject {
          */
       ],
     ]
-
+    
     // 2nd arguemnt set false
     rtmpStream!.attachAudio(AVCaptureDevice.default(for: AVMediaType.audio), automaticallyConfiguresApplicationAudioSession: false) { error in
       print(error)
     }
-
+    
     // Screen capture
     //rtmpStream.attachScreen(ScreenCaptureSession(shared: UIApplication.shared))
-
+    
     previewSize = CGSize(width: width, height: height)
     setCamera(camera: camera)
-
+    
     // emulate Android's cameraSize behavior
     let cameraSize:[String: Any?] = ["name": "cameraSize", "width": width, "height": height]
     eventSink?(cameraSize)
   }
-
+  
   public func setCamera(camera: String) {
     let cameraPos = camera == "back" ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
     let device = AVCaptureDevice.devices().first {
@@ -275,15 +276,15 @@ class Haishin : NSObject {
     let camera1:[String: Any?] = ["name": "camera", "camera": camera]
     eventSink?(camera1)
   }
-
+  
   public func stopPreview() {
     attachStream(nil)
   }
-
+  
   public func startPreview() {
     attachStream(rtmpStream)
   }
-
+  
   public func onair(rtmpUrl: String, streamName: String) -> Bool {
     guard rtmpConnection != nil && rtmpStream != nil else {
       return false
@@ -294,27 +295,27 @@ class Haishin : NSObject {
     self.streamName = streamName
     return true
   }
-
+  
   public func pause() {
     rtmpStream?.pause();
     eventSink?("paused")
   }
-
+  
   public func resume() {
     rtmpStream?.resume();
     eventSink?("resume")
   }
-
+  
   public func paused() {
     // TODO: Implement some
     print("paused not yet implemented on iOS.")
   }
-
+  
   public func resumed() {
     // TODO: Implement some
     print("resumed not yet implemented on iOS.")
   }
-
+  
   public func disconnect() -> Bool {
     guard rtmpConnection != nil && rtmpStream != nil else {
       return false
@@ -325,11 +326,11 @@ class Haishin : NSObject {
     eventSink?("disconnected")
     return true
   }
-
-  public func onOrientation() {
-    // TODO: Implement onOrientation event correctly
+  
+  public func onOrientation(orientation: UIDeviceOrientation) {
+    self.devOrientation = orientation
   }
-
+  
   open func attachStream(_ stream: NetStream?) {
     guard let stream: NetStream = stream else {
       session?.stopRunning()
@@ -337,19 +338,19 @@ class Haishin : NSObject {
       currentStream = nil
       return
     }
-
+    
     stream.mixer.session.beginConfiguration()
     session = stream.mixer.session
-    orientation = stream.mixer.videoIO.orientation
+    //orientation = stream.mixer.videoIO.orientation
     stream.mixer.session.commitConfiguration()
-
+    
     stream.lockQueue.async {
       stream.mixer.videoIO.drawable = self
       self.currentStream = stream
       stream.mixer.startRunning()
     }
   }
-
+  
   @objc
   func rtmpStatusHandler(_ notification: Notification) {
     let e = Event.from(notification)
@@ -363,12 +364,12 @@ class Haishin : NSObject {
       case RTMPConnection.Code.callBadVersion.rawValue: break
       case RTMPConnection.Code.callFailed.rawValue: break
       case RTMPConnection.Code.callProhibited.rawValue: break
-
+        
       // closed by the peer?
       case RTMPConnection.Code.connectClosed.rawValue:
         eventSink?("disconnected")
         break
-
+        
       // connection failures
       case RTMPConnection.Code.connectAppshutdown.rawValue: fallthrough
       case RTMPConnection.Code.connectFailed.rawValue: fallthrough
@@ -378,7 +379,7 @@ class Haishin : NSObject {
       case RTMPConnection.Code.connectRejected.rawValue:
         eventSink?("failedToConnect")
         break
-
+        
       default:
         break
       }
@@ -391,13 +392,11 @@ extension Haishin : FlutterStreamHandler {
     self.eventSink = events
     return nil
   }
-
+  
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     eventSink = nil
     return nil
   }
-
-
 }
 
 extension Haishin : FlutterTexture {
@@ -408,13 +407,38 @@ extension Haishin : FlutterTexture {
 }
 
 extension Haishin : NetStreamDrawable {
-
+  
+  func rot(image: CIImage) -> CGAffineTransform {
+    switch devOrientation {
+    case .portrait:
+      return CGAffineTransform.identity
+    case .portraitUpsideDown:
+      // return image.orientationTransform(for: CGImagePropertyOrientation.down)
+      return CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: image.extent.width, ty: image.extent.height)
+    case .landscapeLeft:
+      // return image.orientationTransform(for: CGImagePropertyOrientation.left)
+      return CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: image.extent.height, ty: 0)
+    case .landscapeRight:
+      // return image.orientationTransform(for: CGImagePropertyOrientation.right)
+      return CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: image.extent.width)
+    default:
+      print("Unexpected rotation: \(devOrientation.rawValue)")
+      return CGAffineTransform.identity
+    }
+  }
+  
+  func rotation(image: CIImage) -> CIImage {
+    let mat = rot(image: image)
+    return image.transformed(by: mat)
+  }
+  
   func draw(image: CIImage) {
     var cvPixBuf: CVPixelBuffer? = nil
     var subimage: CIImage? = nil
     var w: CGFloat
     var h: CGFloat
-    let allRect = image.extent
+    let rotated = rotation(image: image)
+    let allRect = rotated.extent
     if allRect.width != previewSize.width || allRect.height != previewSize.height {
       let scale = min(allRect.width / previewSize.width, allRect.height / previewSize.height)
       w = previewSize.width * scale
@@ -423,8 +447,8 @@ extension Haishin : NetStreamDrawable {
         x: allRect.minX + (allRect.width - w) / 2,
         y: allRect.minY + (allRect.height - h) / 2,
         width: w, height: h)
-
-      let subimage = image.cropped(to: rect).transformed(by: CGAffineTransform.init(translationX: -rect.minX, y: -rect.minY))
+      
+      let subimage = rotated.cropped(to: rect).transformed(by: CGAffineTransform.init(translationX: -rect.minX, y: -rect.minY))
       if #available(iOS 10.0, *) {
         cvPixBuf = subimage.pixelBuffer
       }
@@ -440,7 +464,7 @@ extension Haishin : NetStreamDrawable {
         CIContext().render(subimage, to: cvPixBuf!)
       }
     } else {
-      subimage = image
+      subimage = rotated
       w = previewSize.width
       h = previewSize.height
       if #available(iOS 10.0, *) {
@@ -451,3 +475,4 @@ extension Haishin : NetStreamDrawable {
     self.registrar.textures().textureFrameAvailable(self.tex)
   }
 }
+
